@@ -1,6 +1,6 @@
 # CrokCode installer for Windows PowerShell.
 #
-#   irm https://crokcode.tech/install.ps1 | iex
+#   irm https://www.crokcode.tech/install.ps1 | iex
 #
 # Because the script is piped into `iex` there are no parameters. Configure it
 # with environment variables instead:
@@ -11,7 +11,7 @@
 #   $env:CROKCODE_BINARY      = "C:\path\crokcode.exe"  # install a local build
 #   $env:CROKCODE_NO_MODIFY_PATH = "1"           # skip PATH changes
 #
-# Then:  irm https://crokcode.tech/install.ps1 | iex
+# Then:  irm https://www.crokcode.tech/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"

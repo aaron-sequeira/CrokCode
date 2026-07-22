@@ -48,13 +48,13 @@
 **macOS, Linux, WSL:**
 
 ```bash
-curl -fsSL https://crokcode.tech/install.sh | bash
+curl -fsSL https://www.crokcode.tech/install.sh | bash
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-irm https://crokcode.tech/install.ps1 | iex
+irm https://www.crokcode.tech/install.ps1 | iex
 ```
 
 Both installers download the release binary, drop it on your `PATH`, and are

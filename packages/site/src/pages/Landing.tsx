@@ -3,8 +3,8 @@ import { Link } from "react-router-dom"
 import { Croc } from "../components/Croc"
 
 const INSTALL = {
-  macOS: "curl -fsSL https://crokcode.tech/install.sh | bash",
-  Windows: "irm https://crokcode.tech/install.ps1 | iex",
+  macOS: "curl -fsSL https://www.crokcode.tech/install.sh | bash",
+  Windows: "irm https://www.crokcode.tech/install.ps1 | iex",
   Build: "bun install && bun run script/build.ts --single",
 }
 
