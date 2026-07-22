@@ -748,6 +748,39 @@ p {
   padding: 40px var(--gut);
 }
 
+.btn-google {
+  width: 100%;
+  background: var(--bone);
+  color: #1b1a10;
+  border-color: var(--bone);
+  gap: 10px;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #fffbe8;
+  border-color: #fffbe8;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 .auth-card {
   width: 100%;
   max-width: 420px;
