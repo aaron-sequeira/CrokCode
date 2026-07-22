@@ -108,6 +108,8 @@ function randomIndex(count: number) {
   return Math.floor(Math.random() * count)
 }
 
+const GREEN = RGBA.fromHex("#a7d129")
+
 function fadeColor(color: RGBA, alpha: number) {
   return RGBA.fromValues(color.r, color.g, color.b, color.a * alpha)
 }
@@ -1446,8 +1448,14 @@ export function Prompt(props: PromptProps) {
                       <text fg={fadeColor(highlight(), agentMetaAlpha())}>
                         {store.mode === "shell" ? "Shell" : Locale.titlecase(agent().name)}
                       </text>
-                      <Show when={store.mode === "normal" && local.permission.mode === "auto"}>
-                        <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>auto</text>
+                      <Show when={store.mode === "normal"}>
+                        <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>·</text>
+                        <Show
+                          when={local.permission.mode === "auto"}
+                          fallback={<text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>manual</text>}
+                        >
+                          <text fg={fadeColor(GREEN, agentMetaAlpha())}>auto accept</text>
+                        </Show>
                       </Show>
                       <Show when={store.mode === "normal"}>
                         <box flexDirection="row" gap={1}>
