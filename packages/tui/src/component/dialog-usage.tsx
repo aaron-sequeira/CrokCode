@@ -30,7 +30,7 @@ function bar(used: number, limit: number, width = 22) {
   return "█".repeat(filled) + "░".repeat(Math.max(0, width - filled))
 }
 
-function untilLabel(target: Date) {
+function shortUntil(target: Date) {
   const ms = target.getTime() - Date.now()
   if (ms <= 0) return "now"
   const days = Math.floor(ms / 86_400_000)
@@ -39,6 +39,14 @@ function untilLabel(target: Date) {
   if (days > 0) return `${days}d ${hours}h`
   if (hours > 0) return `${hours}h ${mins}m`
   return `${mins}m`
+}
+
+// The reset instant is a UTC boundary in the DB; render it in the viewer's local
+// timezone (toLocale* use the machine's zone), plus a short countdown.
+function localResetText(target: Date, withDay: boolean) {
+  const time = target.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  const day = withDay ? `${target.toLocaleDateString([], { weekday: "short" })} ` : ""
+  return `resets ${day}${time} · ${shortUntil(target)}`
 }
 
 // Limits reset on UTC day / ISO-week (Monday) boundaries, matching date_trunc in the DB.
@@ -94,7 +102,7 @@ export function DialogUsage() {
     return `Usage — ${label}`
   }
 
-  const meter = (title: string, used: number, limit: number, reset: Date) => {
+  const meter = (title: string, used: number, limit: number, reset: Date, withDay: boolean) => {
     const over = used >= limit
     const near = used / limit >= 0.75
     const color = over ? theme.error : near ? theme.warning : theme.success
@@ -107,10 +115,7 @@ export function DialogUsage() {
         <text fg={theme.text}>
           {money(used)} / {money(limit)}
         </text>
-        <text fg={theme.textMuted}>
-          {over ? "reset in " : "resets in "}
-          {untilLabel(reset)}
-        </text>
+        <text fg={theme.textMuted}>{localResetText(reset, withDay)}</text>
       </box>
     )
   }
@@ -136,8 +141,8 @@ export function DialogUsage() {
 
       <Show when={state() === "ready" && usage()?.daily_limit_cents != null}>
         <box gap={1}>
-          {meter("Today", usage()!.daily_used_cents ?? 0, usage()!.daily_limit_cents!, nextMidnightUTC())}
-          {meter("Week", usage()!.weekly_used_cents ?? 0, usage()!.weekly_limit_cents!, nextMondayUTC())}
+          {meter("Today", usage()!.daily_used_cents ?? 0, usage()!.daily_limit_cents!, nextMidnightUTC(), false)}
+          {meter("Week", usage()!.weekly_used_cents ?? 0, usage()!.weekly_limit_cents!, nextMondayUTC(), true)}
           <Show when={!usage()!.allowed}>
             <text fg={theme.error}>
               {usage()!.reason === "weekly_limit" ? "Weekly" : "Daily"} limit reached — upgrade to CrokPro or use
@@ -145,7 +150,7 @@ export function DialogUsage() {
             </text>
           </Show>
           <text fg={theme.textMuted} attributes={TextAttributes.DIM}>
-            Limits reset on UTC day / Monday boundaries. Manage your plan at crokcode.tech.
+            Reset times shown in your local timezone. Manage your plan at crokcode.tech.
           </text>
         </box>
       </Show>
