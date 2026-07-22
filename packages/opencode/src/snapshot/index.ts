@@ -1,15 +1,15 @@
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { Cause, Duration, Effect, Layer, Schedule, Schema, Semaphore, Context } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { formatPatch, structuredPatch } from "diff"
 import path from "path"
-import { AppProcess } from "@opencode-ai/core/process"
+import { AppProcess } from "@crokcode/core/process"
 import { InstanceState } from "@/effect/instance-state"
-import { FSUtil } from "@opencode-ai/core/fs-util"
-import { Hash } from "@opencode-ai/core/util/hash"
+import { FSUtil } from "@crokcode/core/fs-util"
+import { Hash } from "@crokcode/core/util/hash"
 import { Config } from "@/config/config"
-import { Global } from "@opencode-ai/core/global"
-import { Info } from "@opencode-ai/schema/file-diff"
+import { Global } from "@crokcode/core/global"
+import { Info } from "@crokcode/schema/file-diff"
 
 export const Patch = Schema.Struct({
   hash: Schema.String,
@@ -29,6 +29,7 @@ interface GitResult {
   readonly code: ChildProcessSpawner.ExitCode
   readonly text: string
   readonly stderr: string
+  readonly bytes: Uint8Array
 }
 
 type State = Omit<Interface, "init">
@@ -39,6 +40,7 @@ export interface Interface {
   readonly track: () => Effect.Effect<string | undefined>
   readonly patch: (hash: string) => Effect.Effect<Patch>
   readonly restore: (snapshot: string) => Effect.Effect<void>
+  readonly restoreExact: (snapshot: string) => Effect.Effect<boolean>
   readonly revert: (patches: Patch[]) => Effect.Effect<void>
   readonly diff: (hash: string) => Effect.Effect<string>
   readonly diffFull: (from: string, to: string) => Effect.Effect<FileDiff[]>
@@ -88,6 +90,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
               code: ChildProcessSpawner.ExitCode(result.exitCode),
               text: result.stdout.toString("utf8"),
               stderr: result.stderr.toString("utf8"),
+              bytes: result.stdout,
             } satisfies GitResult
           },
           Effect.catch((err) =>
@@ -95,6 +98,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
               code: ChildProcessSpawner.ExitCode(1),
               text: "",
               stderr: err instanceof Error ? err.message : String(err),
+              bytes: new Uint8Array(),
             }),
           ),
         )
@@ -379,7 +383,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
           )
         })
 
-        const restore = Effect.fnUntraced(function* (snapshot: string) {
+        const restore = Effect.fnUntraced(function* (snapshot: string, exact = false) {
           return yield* locked(
             Effect.gen(function* () {
               yield* Effect.logInfo("restore", { commit: snapshot })
@@ -388,19 +392,33 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                 const checkout = yield* git([...core, ...args(["checkout-index", "-a", "-f"])], {
                   cwd: state.worktree,
                 })
-                if (checkout.code === 0) return
-                yield* Effect.logError("failed to restore snapshot", {
-                  snapshot,
-                  exitCode: checkout.code,
-                  stderr: checkout.stderr,
-                })
-                return
+                if (checkout.code !== 0) {
+                  yield* Effect.logError("failed to restore snapshot", {
+                    snapshot,
+                    exitCode: checkout.code,
+                    stderr: checkout.stderr,
+                  })
+                  return false
+                }
+                if (exact) {
+                  const clean = yield* git([...core, ...args(["clean", "-d", "-f"])], { cwd: state.worktree })
+                  if (clean.code !== 0) {
+                    yield* Effect.logError("failed to remove files added after snapshot", {
+                      snapshot,
+                      exitCode: clean.code,
+                      stderr: clean.stderr,
+                    })
+                    return false
+                  }
+                }
+                return true
               }
               yield* Effect.logError("failed to restore snapshot", {
                 snapshot,
                 exitCode: result.code,
                 stderr: result.stderr,
               })
+              return false
             }),
           )
         })
@@ -558,48 +576,72 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                 file: string
                 side: "before" | "after"
                 ref: string
+                binary: boolean
+              }
+
+              type Content = { before?: string; after?: string }
+
+              const decode = (bytes: Uint8Array, binary: boolean) => {
+                if (!binary) return new TextDecoder().decode(bytes)
+                if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+                  return new TextDecoder("utf-16le").decode(bytes.subarray(2))
+                }
+                if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+                  return new TextDecoder("utf-16be").decode(bytes.subarray(2))
+                }
               }
 
               const show = Effect.fnUntraced(function* (row: Row) {
-                if (row.binary) return ["", ""]
                 if (row.status === "added") {
-                  return [
-                    "",
-                    yield* git([...cfg, ...args(["show", `${to}:${row.file}`])]).pipe(Effect.map((item) => item.text)),
-                  ]
+                  const result = yield* git([...cfg, ...args(["show", `${to}:${row.file}`])])
+                  const after = decode(result.bytes, row.binary)
+                  return ["", after ?? "", row.binary && after === undefined] as const
                 }
                 if (row.status === "deleted") {
-                  return [
-                    yield* git([...cfg, ...args(["show", `${from}:${row.file}`])]).pipe(
-                      Effect.map((item) => item.text),
-                    ),
-                    "",
-                  ]
+                  const result = yield* git([...cfg, ...args(["show", `${from}:${row.file}`])])
+                  const before = decode(result.bytes, row.binary)
+                  return [before ?? "", "", row.binary && before === undefined] as const
                 }
-                return yield* Effect.all(
+                const results = yield* Effect.all(
                   [
-                    git([...cfg, ...args(["show", `${from}:${row.file}`])]).pipe(Effect.map((item) => item.text)),
-                    git([...cfg, ...args(["show", `${to}:${row.file}`])]).pipe(Effect.map((item) => item.text)),
+                    git([...cfg, ...args(["show", `${from}:${row.file}`])]),
+                    git([...cfg, ...args(["show", `${to}:${row.file}`])]),
                   ],
                   { concurrency: 2 },
                 )
+                const before = decode(results[0].bytes, row.binary)
+                const after = decode(results[1].bytes, row.binary)
+                return [before ?? "", after ?? "", row.binary && (before === undefined || after === undefined)] as const
               })
 
               const load = Effect.fnUntraced(
                 function* (rows: Row[]) {
                   const refs = rows.flatMap((row) => {
-                    if (row.binary) return []
                     if (row.status === "added")
-                      return [{ file: row.file, side: "after", ref: `${to}:${row.file}` } satisfies Ref]
+                      return [
+                        { file: row.file, side: "after", ref: `${to}:${row.file}`, binary: row.binary } satisfies Ref,
+                      ]
                     if (row.status === "deleted") {
-                      return [{ file: row.file, side: "before", ref: `${from}:${row.file}` } satisfies Ref]
+                      return [
+                        {
+                          file: row.file,
+                          side: "before",
+                          ref: `${from}:${row.file}`,
+                          binary: row.binary,
+                        } satisfies Ref,
+                      ]
                     }
                     return [
-                      { file: row.file, side: "before", ref: `${from}:${row.file}` } satisfies Ref,
-                      { file: row.file, side: "after", ref: `${to}:${row.file}` } satisfies Ref,
+                      {
+                        file: row.file,
+                        side: "before",
+                        ref: `${from}:${row.file}`,
+                        binary: row.binary,
+                      } satisfies Ref,
+                      { file: row.file, side: "after", ref: `${to}:${row.file}`, binary: row.binary } satisfies Ref,
                     ]
                   })
-                  if (!refs.length) return new Map<string, { before: string; after: string }>()
+                  if (!refs.length) return new Map<string, Content>()
 
                   const batch = yield* appProcess.run(
                     ChildProcess.make("git", [...cfg, ...args(["cat-file", "--batch"])], {
@@ -624,7 +666,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                     return undefined
                   }
 
-                  const map = new Map<string, { before: string; after: string }>()
+                  const map = new Map<string, Content>()
                   const dec = new TextDecoder()
                   let i = 0
                   for (const ref of refs) {
@@ -638,7 +680,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
 
                     const head = dec.decode(out.slice(i, end))
                     i = end + 1
-                    const hit = map.get(ref.file) ?? { before: "", after: "" }
+                    const hit = map.get(ref.file) ?? {}
                     if (head.endsWith(" missing")) {
                       map.set(ref.file, hit)
                       continue
@@ -660,9 +702,9 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                       )
                     }
 
-                    const text = dec.decode(out.slice(i, i + size))
-                    if (ref.side === "before") hit.before = text
-                    if (ref.side === "after") hit.after = text
+                    const text = decode(out.slice(i, i + size), ref.binary)
+                    if (ref.side === "before" && text !== undefined) hit.before = text
+                    if (ref.side === "after" && text !== undefined) hit.after = text
                     map.set(ref.file, hit)
                     i += size + 1
                   }
@@ -676,9 +718,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                   return map
                 },
                 Effect.scoped,
-                Effect.catch(() =>
-                  Effect.succeed<Map<string, { before: string; after: string }> | undefined>(undefined),
-                ),
+                Effect.catch(() => Effect.succeed<Map<string, Content> | undefined>(undefined)),
               )
 
               const result: FileDiff[] = []
@@ -741,11 +781,19 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
                 const text = yield* load(run)
 
                 for (const row of run) {
-                  const hit = text?.get(row.file) ?? { before: "", after: "" }
-                  const [before, after] = row.binary ? ["", ""] : text ? [hit.before, hit.after] : yield* show(row)
+                  const hit = text?.get(row.file)
+                  const decoded =
+                    row.status === "added"
+                      ? hit?.after !== undefined
+                      : row.status === "deleted"
+                        ? hit?.before !== undefined
+                        : hit?.before !== undefined && hit?.after !== undefined
+                  const [before, after, binary] = text
+                    ? [hit?.before ?? "", hit?.after ?? "", row.binary && !decoded]
+                    : yield* show(row)
                   result.push({
                     file: row.file,
-                    patch: row.binary ? "" : patch(row.file, before, after),
+                    patch: binary ? "" : patch(row.file, before, after),
                     additions: row.additions,
                     deletions: row.deletions,
                     status: row.status,
@@ -765,7 +813,16 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
           Effect.forkScoped,
         )
 
-        return { cleanup, track, patch, restore, revert, diff, diffFull }
+        return {
+          cleanup,
+          track,
+          patch,
+          restore: (snapshot) => restore(snapshot).pipe(Effect.asVoid),
+          restoreExact: (snapshot) => restore(snapshot, true),
+          revert,
+          diff,
+          diffFull,
+        }
       }),
     )
 
@@ -784,6 +841,9 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | AppProcess.Service | C
       }),
       restore: Effect.fn("Snapshot.restore")(function* (snapshot: string) {
         return yield* InstanceState.useEffect(state, (s) => s.restore(snapshot))
+      }),
+      restoreExact: Effect.fn("Snapshot.restoreExact")(function* (snapshot: string) {
+        return yield* InstanceState.useEffect(state, (s) => s.restoreExact(snapshot))
       }),
       revert: Effect.fn("Snapshot.revert")(function* (patches: Patch[]) {
         return yield* InstanceState.useEffect(state, (s) => s.revert(patches))

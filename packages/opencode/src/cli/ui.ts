@@ -1,12 +1,29 @@
 import { EOL } from "os"
 import { Schema } from "effect"
-import { logo as glyphs } from "./logo"
+import { croc, logo as glyphs } from "./logo"
+
+const CROC_GREEN = "\x1b[38;2;167;209;41m"
+const CROC_CREAM = "\x1b[38;2;247;240;208m"
+
+/** Render the Pixel Croc mascot, optionally in brand colour. */
+function crocRows(color: boolean) {
+  const reset = "\x1b[0m"
+  return croc.map((row) => {
+    let out = ""
+    for (const char of row) {
+      if (char === "#") out += color ? CROC_GREEN + "█" + reset : "█"
+      else if (char === "*") out += color ? CROC_CREAM + "█" + reset : "█"
+      else out += " "
+    }
+    return out.trimEnd()
+  })
+}
 
 const wordmark = [
-  `⠀                                ▄     `,
-  `█▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█`,
-  `█  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀`,
-  `▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀`,
+  `⠀                               ▄`,
+  `█▀▀▀ █▀▀▄ █▀▀█ █ ▄▀ █▀▀▀ █▀▀█ █▀▀█ █▀▀█`,
+  `█    █▀█  █  █ █▀▄  █    █  █ █  █ █▀▀▀`,
+  `▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀`,
 ]
 
 export class CancelledError extends Schema.TaggedErrorClass<CancelledError>()("UICancelledError", {}) {}
@@ -48,7 +65,7 @@ export function empty() {
 export function logo(pad?: string) {
   if (!process.stdout.isTTY && !process.stderr.isTTY) {
     const result = []
-    for (const row of wordmark) {
+    for (const row of [...crocRows(false), "", ...wordmark]) {
       if (pad) result.push(pad)
       result.push(row)
       result.push(EOL)
@@ -57,6 +74,12 @@ export function logo(pad?: string) {
   }
 
   const result: string[] = []
+  for (const row of crocRows(true)) {
+    if (pad) result.push(pad)
+    result.push(row)
+    result.push(EOL)
+  }
+  result.push(EOL)
   const reset = "\x1b[0m"
   const left = {
     fg: "\x1b[90m",

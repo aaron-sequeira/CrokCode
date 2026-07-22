@@ -193,6 +193,10 @@ import type {
   SessionForkResponses,
   SessionGetErrors,
   SessionGetResponses,
+  SessionGuardResolveErrors,
+  SessionGuardResolveResponses,
+  SessionGuardScanErrors,
+  SessionGuardScanResponses,
   SessionInitErrors,
   SessionInitResponses,
   SessionListErrors,
@@ -3359,6 +3363,89 @@ export class Provider extends HeyApiClient {
   }
 }
 
+export class Guard extends HeyApiClient {
+  /**
+   * Scan session workspace
+   *
+   * Scan current workspace changes with Guard.
+   */
+  public scan<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGuardScanResponses, SessionGuardScanErrors, ThrowOnError>({
+      url: "/session/{sessionID}/guard",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resolve Guard finding
+   *
+   * Accept, discard, or revert a Guard finding attached to a tool part.
+   */
+  public resolve<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      messageID: string
+      partID: string
+      findingID: string
+      directory?: string
+      workspace?: string
+      action?: "accept" | "discard" | "revert"
+      reason?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "messageID" },
+            { in: "path", key: "partID" },
+            { in: "path", key: "findingID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "action" },
+            { in: "body", key: "reason" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGuardResolveResponses, SessionGuardResolveErrors, ThrowOnError>(
+      {
+        url: "/session/{sessionID}/message/{messageID}/part/{partID}/guard/{findingID}",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+}
+
 export class Session2 extends HeyApiClient {
   /**
    * List sessions
@@ -4324,6 +4411,11 @@ export class Session2 extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _guard?: Guard
+  get guard(): Guard {
+    return (this._guard ??= new Guard({ client: this.client }))
   }
 }
 

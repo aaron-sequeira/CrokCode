@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APP=opencode
+APP=crokcode
+# Set CROKCODE_REPO to your GitHub repo (owner/name) that publishes crokcode releases.
+REPO="${CROKCODE_REPO:-aaron-sequeira/crokcode}"
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -9,7 +11,7 @@ NC='\033[0m' # No Color
 
 usage() {
     cat <<EOF
-OpenCode Installer
+CrokCode Installer
 
 Usage: install.sh [options]
 
@@ -20,9 +22,9 @@ Options:
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
-    curl -fsSL https://opencode.ai/install | bash
-    curl -fsSL https://opencode.ai/install | bash -s -- --version 1.0.180
-    ./install --binary /path/to/opencode
+    curl -fsSL https://raw.githubusercontent.com/${REPO}/dev/install | bash
+    curl -fsSL https://raw.githubusercontent.com/${REPO}/dev/install | bash -s -- --version 1.0.180
+    ./install --binary /path/to/crokcode
 EOF
 }
 
@@ -181,8 +183,8 @@ else
     fi
 
     if [ -z "$requested_version" ]; then
-        url="https://github.com/anomalyco/opencode/releases/latest/download/$filename"
-        specific_version=$(curl -s https://api.github.com/repos/anomalyco/opencode/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+        url="https://github.com/${REPO}/releases/latest/download/$filename"
+        specific_version=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
 
         if [[ $? -ne 0 || -z "$specific_version" ]]; then
             echo -e "${RED}Failed to fetch version information${NC}"
@@ -191,14 +193,14 @@ else
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
-        url="https://github.com/anomalyco/opencode/releases/download/v${requested_version}/$filename"
+        url="https://github.com/${REPO}/releases/download/v${requested_version}/$filename"
         specific_version=$requested_version
 
         # Verify the release exists before downloading
-        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/anomalyco/opencode/releases/tag/v${requested_version}")
+        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/${REPO}/releases/tag/v${requested_version}")
         if [ "$http_status" = "404" ]; then
             echo -e "${RED}Error: Release v${requested_version} not found${NC}"
-            echo -e "${MUTED}Available releases: https://github.com/anomalyco/opencode/releases${NC}"
+            echo -e "${MUTED}Available releases: https://github.com/${REPO}/releases${NC}"
             exit 1
         fi
     fi

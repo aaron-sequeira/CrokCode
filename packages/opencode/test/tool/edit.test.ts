@@ -1,12 +1,12 @@
 import { afterEach, describe, expect } from "bun:test"
 import path from "path"
 import fs from "fs/promises"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { Cause, Deferred, Effect, Exit, Fiber, Layer } from "effect"
 import { EditTool } from "../../src/tool/edit"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { LSP } from "@/lsp/lsp"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { Format } from "../../src/format"
 import { Agent } from "../../src/agent/agent"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
@@ -14,7 +14,8 @@ import { Truncate } from "@/tool/truncate"
 import { SessionID, MessageID } from "../../src/session/schema"
 import * as Tool from "../../src/tool/tool"
 import { testEffect } from "../lib/effect"
-import { Watcher } from "@opencode-ai/core/filesystem/watcher"
+import { Watcher } from "@crokcode/core/filesystem/watcher"
+import { Guard, GuardBlockedError } from "@/guard"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-edit-session"),
@@ -32,7 +33,7 @@ afterEach(async () => {
 })
 
 const layer = LayerNode.compile(
-  LayerNode.group([LSP.node, FSUtil.node, Format.node, EventV2Bridge.node, Truncate.node, Agent.node]),
+  LayerNode.group([LSP.node, FSUtil.node, Format.node, EventV2Bridge.node, Truncate.node, Agent.node, Guard.node]),
 )
 
 const it = testEffect(layer)
@@ -90,6 +91,42 @@ const onceBus = Effect.fn("EditToolTest.onceBus")(function* (def: typeof Watcher
 })
 
 describe("tool.edit", () => {
+  describe("guard", () => {
+    it.instance("blocks a secret replacement before modifying the file", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "guard.ts")
+        yield* put(filepath, "const safe = true\n")
+        const metadata: unknown[] = []
+        const exit = yield* run(
+          {
+            filePath: filepath,
+            oldString: "const safe = true",
+            newString: 'const token = "Aa1_abcdefghijklmnopqrstuvwxyz"',
+          },
+          { ...ctx, metadata: (input) => Effect.sync(() => metadata.push(input.metadata)) },
+        ).pipe(Effect.exit)
+
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(GuardBlockedError)
+        expect(yield* load(filepath)).toBe("const safe = true\n")
+        expect(JSON.stringify(metadata)).not.toContain("Aa1_abcdefghijklmnopqrstuvwxyz")
+        expect(JSON.stringify(metadata)).toContain("[REDACTED]")
+      }),
+    )
+
+    it.instance("returns warning guard metadata after an edit", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "guard.ts")
+        yield* put(filepath, "const safe = true\n")
+        const result = yield* run({ filePath: filepath, oldString: "safe", newString: "eval('ok')" })
+
+        expect(result.metadata).toMatchObject({ guard: { status: "warning", phase: "pre-write" } })
+      }),
+    )
+  })
+
   describe("creating new files", () => {
     it.instance("creates new file when oldString is empty", () =>
       Effect.gen(function* () {

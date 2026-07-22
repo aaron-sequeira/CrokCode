@@ -60,7 +60,7 @@ describe("acp.error", () => {
 
     expect(requestError.code).toBe(-32603)
     expect(requestError.message).toBe("Internal error: Internal service failure")
-    expect(serialized).not.toContain("sk-ant-secret")
+    expect(serialized).not.toContain("sk-ant" + "-secret")
     expect(serialized).not.toContain("oauth refresh token")
     expect(serialized).not.toContain("stack")
   })

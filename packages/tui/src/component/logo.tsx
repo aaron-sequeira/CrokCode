@@ -1,7 +1,10 @@
 import { RGBA, TextAttributes } from "@opentui/core"
 import { For, type JSX } from "solid-js"
 import { tint, useTheme } from "../context/theme"
-import { logo } from "../logo"
+import { croc, logo } from "../logo"
+
+const GREEN = RGBA.fromHex("#a7d129")
+const CREAM = RGBA.fromHex("#f7f0d0")
 
 export function Logo() {
   const { theme } = useTheme()
@@ -46,16 +49,28 @@ export function Logo() {
     })
   }
 
+  const renderCroc = (line: string): JSX.Element[] =>
+    Array.from(line).map((char) => {
+      if (char === "#") return <text fg={GREEN} selectable={false}>█</text>
+      if (char === "*") return <text fg={CREAM} selectable={false}>█</text>
+      return <text selectable={false}> </text>
+    })
+
   return (
-    <box>
-      <For each={logo.left}>
-        {(line, index) => (
-          <box flexDirection="row" gap={1}>
-            <box flexDirection="row">{renderLine(line, theme.textMuted, false)}</box>
-            <box flexDirection="row">{renderLine(logo.right[index()], theme.text, true)}</box>
-          </box>
-        )}
-      </For>
+    <box alignItems="center">
+      <box>
+        <For each={croc}>{(line) => <box flexDirection="row">{renderCroc(line)}</box>}</For>
+      </box>
+      <box paddingTop={1}>
+        <For each={logo.left}>
+          {(line, index) => (
+            <box flexDirection="row" gap={1}>
+              <box flexDirection="row">{renderLine(line, GREEN, true)}</box>
+              <box flexDirection="row">{renderLine(logo.right[index()], theme.text, true)}</box>
+            </box>
+          )}
+        </For>
+      </box>
     </box>
   )
 }

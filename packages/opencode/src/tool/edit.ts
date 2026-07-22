@@ -9,15 +9,17 @@ import * as Tool from "./tool"
 import { LSP } from "@/lsp/lsp"
 import { createTwoFilesPatch, diffLines } from "diff"
 import DESCRIPTION from "./edit.txt"
-import { FileSystem } from "@opencode-ai/core/filesystem"
-import { Watcher } from "@opencode-ai/core/filesystem/watcher"
+import { FileSystem } from "@crokcode/core/filesystem"
+import { Watcher } from "@crokcode/core/filesystem/watcher"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Format } from "../format"
 import { InstanceState } from "@/effect/instance-state"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectoryEffect } from "./external-directory"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import * as Bom from "@/util/bom"
+import { Guard, GuardBlockedError, type GuardScanResult } from "@/guard"
+import { containsPath } from "@/project/instance-context"
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -62,6 +64,7 @@ export const EditTool = Tool.define(
     const afs = yield* FSUtil.Service
     const format = yield* Format.Service
     const events = yield* EventV2Bridge.Service
+    const guardService = yield* Guard.Service
 
     return {
       description: DESCRIPTION,
@@ -80,11 +83,29 @@ export const EditTool = Tool.define(
           const filePath = path.isAbsolute(params.filePath)
             ? params.filePath
             : path.join(instance.directory, params.filePath)
+          const preflight = yield* guardService.scan(containsPath(filePath, instance) ? [] : [
+            {
+              file: filePath,
+              before: "",
+              after: params.newString,
+              diff: params.newString
+                .split("\n")
+                .map((line) => `+${line}`)
+                .join("\n"),
+            },
+          ])
+          if (preflight.status === "blocked") {
+            yield* ctx.metadata({
+              metadata: { filepath: filePath, diff: Guard.changeDiff(preflight, filePath), files: [filePath], guard: preflight },
+            })
+            return yield* Effect.fail(new GuardBlockedError({ findings: preflight.findings }))
+          }
           yield* assertExternalDirectoryEffect(ctx, filePath)
 
           let diff = ""
           let contentOld = ""
           let contentNew = ""
+          let guard: GuardScanResult | undefined
           yield* lock(filePath).withPermits(1)(
             Effect.gen(function* () {
               if (params.oldString === "") {
@@ -99,13 +120,21 @@ export const EditTool = Tool.define(
                 contentOld = ""
                 contentNew = next.text
                 diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
+                guard = yield* guardService.scan([{ file: filePath, before: contentOld, after: contentNew, diff }])
+                const safeDiff = Guard.changeDiff(guard, filePath)
+                if (guard.status === "blocked") {
+                  yield* ctx.metadata({ metadata: { filepath: filePath, diff: safeDiff, files: [filePath], guard } })
+                  return yield* Effect.fail(new GuardBlockedError({ findings: guard.findings }))
+                }
+                if (guard.status === "warning")
+                  yield* ctx.metadata({ metadata: { filepath: filePath, diff: safeDiff, guard } })
                 yield* ctx.ask({
                   permission: "edit",
                   patterns: [path.relative(instance.worktree, filePath)],
                   always: ["*"],
                   metadata: {
                     filepath: filePath,
-                    diff,
+                    diff: safeDiff,
                   },
                 })
                 yield* afs.writeWithDirs(filePath, Bom.join(contentNew, desiredBom))
@@ -142,13 +171,21 @@ export const EditTool = Tool.define(
                   normalizeLineEndings(contentNew),
                 ),
               )
+              guard = yield* guardService.scan([{ file: filePath, before: contentOld, after: contentNew, diff }])
+              const safeDiff = Guard.changeDiff(guard, filePath)
+              if (guard.status === "blocked") {
+                yield* ctx.metadata({ metadata: { filepath: filePath, diff: safeDiff, files: [filePath], guard } })
+                return yield* Effect.fail(new GuardBlockedError({ findings: guard.findings }))
+              }
+              if (guard.status === "warning")
+                yield* ctx.metadata({ metadata: { filepath: filePath, diff: safeDiff, guard } })
               yield* ctx.ask({
                 permission: "edit",
                 patterns: [path.relative(instance.worktree, filePath)],
                 always: ["*"],
                 metadata: {
                   filepath: filePath,
-                  diff,
+                  diff: safeDiff,
                 },
               })
 
@@ -180,16 +217,17 @@ export const EditTool = Tool.define(
           }
           const filediff: Snapshot.FileDiff = {
             file: filePath,
-            patch: diff,
+            patch: guard ? Guard.redact(diff) : diff,
             additions,
             deletions,
           }
 
           yield* ctx.metadata({
             metadata: {
-              diff,
+              diff: guard ? Guard.redact(diff) : diff,
               filediff,
               diagnostics: {},
+              ...(guard?.status === "warning" ? { guard } : {}),
             },
           })
 
@@ -203,8 +241,9 @@ export const EditTool = Tool.define(
           return {
             metadata: {
               diagnostics,
-              diff,
+              diff: guard ? Guard.redact(diff) : diff,
               filediff,
+              ...(guard?.status === "warning" ? { guard } : {}),
             },
             title: `${path.relative(instance.worktree, filePath)}`,
             output,

@@ -1,11 +1,11 @@
 import { describe, expect } from "bun:test"
 import path from "path"
 import * as fs from "fs/promises"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer } from "effect"
 import { ApplyPatchTool } from "../../src/tool/apply_patch"
 import { LSP } from "@/lsp/lsp"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { Format } from "../../src/format"
 import { Agent } from "../../src/agent/agent"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
@@ -13,10 +13,11 @@ import { Truncate } from "@/tool/truncate"
 import { TestInstance } from "../fixture/fixture"
 import { SessionID, MessageID } from "../../src/session/schema"
 import { testEffect } from "../lib/effect"
+import { Guard, GuardBlockedError } from "@/guard"
 
 const it = testEffect(
   LayerNode.compile(
-    LayerNode.group([LSP.node, FSUtil.node, Format.node, EventV2Bridge.node, Truncate.node, Agent.node]),
+    LayerNode.group([LSP.node, FSUtil.node, Format.node, EventV2Bridge.node, Truncate.node, Agent.node, Guard.node]),
   ),
 )
 
@@ -27,7 +28,7 @@ const baseCtx = {
   agent: "build",
   abort: AbortSignal.any([]),
   messages: [],
-  metadata: () => Effect.void,
+  metadata: (_input: { metadata: unknown }) => Effect.void,
 }
 
 type AskInput = {
@@ -61,15 +62,17 @@ const execute = Effect.fn("ApplyPatchToolTest.execute")(function* (params: { pat
 
 const makeCtx = () => {
   const calls: AskInput[] = []
+  const metadata: unknown[] = []
   const ctx: ToolCtx = {
     ...baseCtx,
+    metadata: (input) => Effect.sync(() => metadata.push(input.metadata)),
     ask: (input) =>
       Effect.sync(() => {
         calls.push(input)
       }),
   }
 
-  return { ctx, calls }
+  return { ctx, calls, metadata }
 }
 
 const readText = (filepath: string) => Effect.promise(() => fs.readFile(filepath, "utf-8"))
@@ -86,6 +89,71 @@ const expectFailure = <A, E, R>(effect: Effect.Effect<A, E, R>, message?: string
 const expectReadFailure = (filepath: string) => expectFailure(readText(filepath))
 
 describe("tool.apply_patch freeform", () => {
+  it.instance("blocks every file in a patch when one file contains a secret", () =>
+    Effect.gen(function* () {
+      const test = yield* TestInstance
+      const { ctx, metadata } = makeCtx()
+      const safe = path.join(test.directory, "safe.ts")
+      const secret = path.join(test.directory, "secret.ts")
+      yield* writeText(safe, "const safe = true\n")
+      const exit = yield* execute(
+        {
+          patchText:
+            '*** Begin Patch\n*** Update File: safe.ts\n@@\n-const safe = true\n+const safe = false\n*** Add File: secret.ts\n+const token = "Aa1_abcdefghijklmnopqrstuvwxyz"\n*** End Patch',
+        },
+        ctx,
+      ).pipe(Effect.exit)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        const error = Cause.squash(exit.cause)
+        expect(error).toBeInstanceOf(GuardBlockedError)
+        if (error instanceof GuardBlockedError) expect(error.findings.map((finding) => finding.file)).toEqual([secret])
+      }
+      expect(yield* readText(safe)).toBe("const safe = true\n")
+      yield* expectReadFailure(secret)
+      expect(JSON.stringify(metadata)).not.toContain("Aa1_abcdefghijklmnopqrstuvwxyz")
+      expect(JSON.stringify(metadata)).toContain("[REDACTED]")
+    }),
+  )
+
+  it.instance("returns warning metadata with the changed file", () =>
+    Effect.gen(function* () {
+      const test = yield* TestInstance
+      const { ctx } = makeCtx()
+      const target = path.join(test.directory, "warning.ts")
+      yield* writeText(target, "const safe = true\n")
+      const result = yield* execute(
+        {
+          patchText: "*** Begin Patch\n*** Update File: warning.ts\n@@\n-const safe = true\n+eval('ok')\n*** End Patch",
+        },
+        ctx,
+      )
+
+      expect(result.metadata).toMatchObject({ guard: { status: "warning", phase: "pre-write" } })
+      expect(result.metadata.guard?.findings[0]?.file).toBe(target)
+    }),
+  )
+
+  it.instance("reports move findings against the destination path", () =>
+    Effect.gen(function* () {
+      const test = yield* TestInstance
+      const { ctx } = makeCtx()
+      const source = path.join(test.directory, "old.ts")
+      const destination = path.join(test.directory, "new.ts")
+      yield* writeText(source, "const safe = true\n")
+      const result = yield* execute(
+        {
+          patchText:
+            "*** Begin Patch\n*** Update File: old.ts\n*** Move to: new.ts\n@@\n-const safe = true\n+eval('ok')\n*** End Patch",
+        },
+        ctx,
+      )
+
+      expect(result.metadata.guard?.findings[0]?.file).toBe(destination)
+    }),
+  )
+
   it.live("requires patchText", () =>
     Effect.gen(function* () {
       const { ctx } = makeCtx()

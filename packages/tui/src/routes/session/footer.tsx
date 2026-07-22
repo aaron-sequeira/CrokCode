@@ -5,6 +5,7 @@ import { useDirectory } from "../../context/directory"
 import { useConnected } from "../../component/use-connected"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
+import { unresolvedGuardCount } from "./guard"
 
 export function Footer() {
   const { theme } = useTheme()
@@ -16,6 +17,12 @@ export function Footer() {
   const permissions = createMemo(() => {
     if (route.data.type !== "session") return []
     return sync.data.permission[route.data.sessionID] ?? []
+  })
+  const guard = createMemo(() => {
+    if (route.data.type !== "session") return 0
+    return unresolvedGuardCount(
+      (sync.data.message[route.data.sessionID] ?? []).flatMap((message) => sync.data.part[message.id] ?? []),
+    )
   })
   const directory = useDirectory()
   const connected = useConnected()
@@ -60,6 +67,9 @@ export function Footer() {
             </text>
           </Match>
           <Match when={connected()}>
+            <Show when={guard() > 0}>
+              <text fg={theme.primary}>CROK GUARD {guard()}</text>
+            </Show>
             <Show when={permissions().length > 0}>
               <text fg={theme.warning}>
                 <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission

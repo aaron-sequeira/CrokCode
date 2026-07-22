@@ -1,20 +1,21 @@
 import { afterEach, describe, expect } from "bun:test"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { Effect, Layer } from "effect"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
+import { Cause, Effect, Exit, Layer } from "effect"
 import path from "path"
 import fs from "fs/promises"
 import { WriteTool } from "../../src/tool/write"
 import { LSP } from "@/lsp/lsp"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
 import { Format } from "../../src/format"
 import { Truncate } from "@/tool/truncate"
 import { Tool } from "@/tool/tool"
 import { Agent } from "../../src/agent/agent"
 import { SessionID, MessageID } from "../../src/session/schema"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { Guard, GuardBlockedError } from "@/guard"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-write-session"),
@@ -41,6 +42,7 @@ const it = testEffect(
       CrossSpawnSpawner.node,
       Truncate.node,
       Agent.node,
+      Guard.node,
     ]),
   ),
 )
@@ -59,6 +61,59 @@ const run = Effect.fn("WriteToolTest.run")(function* (
 })
 
 describe("tool.write", () => {
+  describe("guard", () => {
+    it.instance("blocks a secret before overwriting a file", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "guard.ts")
+        yield* Effect.promise(() => fs.writeFile(filepath, "const safe = true\n", "utf-8"))
+        const metadata: unknown[] = []
+        const exit = yield* run(
+          { filePath: filepath, content: 'const token = "Aa1_abcdefghijklmnopqrstuvwxyz"\n' },
+          { ...ctx, metadata: (input) => Effect.sync(() => metadata.push(input.metadata)) },
+        ).pipe(Effect.exit)
+
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(GuardBlockedError)
+        expect(yield* Effect.promise(() => fs.readFile(filepath, "utf-8"))).toBe("const safe = true\n")
+        expect(metadata).toContainEqual(
+          expect.objectContaining({ guard: expect.objectContaining({ status: "blocked", phase: "pre-write" }) }),
+        )
+        expect(JSON.stringify(metadata)).not.toContain("Aa1_abcdefghijklmnopqrstuvwxyz")
+        expect(JSON.stringify(metadata)).toContain("[REDACTED]")
+      }),
+    )
+
+    it.instance("blocks a secret before creating a new file", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const filepath = path.join(test.directory, "guard-new.ts")
+        const exit = yield* run({
+          filePath: filepath,
+          content: 'const token = "Aa1_abcdefghijklmnopqrstuvwxyz"\n',
+        }).pipe(Effect.exit)
+
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(GuardBlockedError)
+        expect(yield* Effect.promise(() => Bun.file(filepath).exists())).toBe(false)
+      }),
+    )
+
+    it.instance("returns warning guard metadata after a write", () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const result = yield* run({
+          filePath: path.join(test.directory, "guard.ts"),
+          content: "eval('ok')\n",
+        })
+
+        expect(result.metadata).toMatchObject({
+          guard: { status: "warning", phase: "pre-write", findings: [expect.objectContaining({ status: "warning" })] },
+        })
+      }),
+    )
+  })
+
   describe("new file creation", () => {
     it.instance("writes content to new file", () =>
       Effect.gen(function* () {

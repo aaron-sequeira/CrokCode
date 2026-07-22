@@ -1,12 +1,12 @@
-import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { PermissionV1 } from "@crokcode/core/v1/permission"
 import { describe, expect } from "bun:test"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer } from "effect"
 import type * as Scope from "effect/Scope"
 import os from "os"
 import path from "path"
 import { Config } from "@/config/config"
-import { Shell } from "@opencode-ai/core/shell"
+import { Shell } from "@crokcode/core/shell"
 import { ShellTool } from "../../src/tool/shell"
 import { Filesystem } from "@/util/filesystem"
 import { provideInstance, testInstanceStoreLayer, tmpdirScoped } from "../fixture/fixture"
@@ -14,13 +14,15 @@ import type { Permission } from "../../src/permission"
 import { Agent } from "../../src/agent/agent"
 import { Truncate } from "@/tool/truncate"
 import { SessionID, MessageID } from "../../src/session/schema"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { Plugin } from "../../src/plugin"
 import { testEffect } from "../lib/effect"
 import { Tool } from "@/tool/tool"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { InstanceStore } from "@/project/instance-store"
+import { Guard, GuardBlockedError } from "@/guard"
+import { Snapshot } from "@/snapshot"
 
 const shellLayer = Layer.mergeAll(
   LayerNode.compile(
@@ -32,6 +34,8 @@ const shellLayer = Layer.mergeAll(
       Config.node,
       Agent.node,
       RuntimeFlags.node,
+      Snapshot.node,
+      Guard.node,
     ]),
   ),
   testInstanceStoreLayer,
@@ -542,7 +546,7 @@ describe("tool.shell permissions", () => {
           item,
           Effect.acquireUseRelease(
             Effect.sync(() => {
-              const key = "OPENCODE_TEST_MISSING"
+              const key = "CROKCODE_TEST_MISSING"
               const prev = process.env[key]
               delete process.env[key]
               return { key, prev }
@@ -1007,6 +1011,108 @@ describe("tool.shell permissions", () => {
 })
 
 describe("tool.shell abort", () => {
+  it.live("blocks a critical post-shell change and retains the before snapshot", () =>
+    Effect.gen(function* () {
+      const directory = yield* tmpdirScoped({ git: true })
+      return yield* runIn(
+        directory,
+        Effect.gen(function* () {
+          yield* Effect.promise(() => Bun.write(path.join(directory, ".gitignore"), "guard-shell.json\n"))
+          const metadata: unknown[] = []
+          const exit = yield* run(
+            { command: 'echo \'{"token":"Aa1_abcdefghijklmnopqrstuvwxyz"}\' > guard-shell.json' },
+            {
+              ...ctx,
+              metadata: (input) => Effect.sync(() => metadata.push(input.metadata)),
+            },
+          ).pipe(Effect.exit)
+
+          expect(yield* Effect.promise(() => Bun.file(path.join(directory, "guard-shell.json")).exists())).toBe(true)
+          expect(metadata).toContainEqual(
+            expect.objectContaining({
+              guard: expect.objectContaining({
+                status: "blocked",
+                phase: "post-shell",
+                before_snapshot: expect.any(String),
+              }),
+            }),
+          )
+          expect(Exit.isFailure(exit)).toBe(true)
+          if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBeInstanceOf(GuardBlockedError)
+        }),
+      )
+    }),
+  )
+
+  it.live("reports the post-shell Guard check as unavailable when source capture fails", () =>
+    Effect.gen(function* () {
+      const directory = yield* tmpdirScoped({ git: true })
+      return yield* runIn(
+        directory,
+        Effect.gen(function* () {
+          const guard = yield* Guard.Service
+          const result = yield* run({ command: "echo safe" }).pipe(
+            Effect.provideService(
+              Guard.Service,
+              Guard.Service.of({
+                ...guard,
+                captureWorkspace: () => Effect.succeed(undefined),
+              }),
+            ),
+          )
+
+          expect(result.metadata.guard).toMatchObject({
+            status: "unavailable",
+            phase: "post-shell",
+          })
+        }),
+      )
+    }),
+  )
+
+  it.live("redacts secret-shaped shell output before returning or streaming metadata", () =>
+    Effect.gen(function* () {
+      const directory = yield* tmpdirScoped({ git: true })
+      return yield* runIn(
+        directory,
+        Effect.gen(function* () {
+          const secret = "Aa1_abcdefghijklmnopqrstuvwxyz"
+          const metadata: unknown[] = []
+          const result = yield* run(
+            { command: `node -e "console.log('${secret}')"` },
+            { ...ctx, metadata: (input) => Effect.sync(() => metadata.push(input.metadata)) },
+          )
+
+          expect(result.output).not.toContain(secret)
+          expect(result.output).toContain("[REDACTED]")
+          expect(result.title).not.toContain(secret)
+          expect(JSON.stringify(metadata)).not.toContain(secret)
+        }),
+      )
+    }),
+  )
+
+  it.live("redacts keyed secrets across long whitespace in spilled output", () =>
+    Effect.gen(function* () {
+      const directory = yield* tmpdirScoped({ git: true })
+      return yield* runIn(
+        directory,
+        Effect.gen(function* () {
+          const secret = "abcdefghijklmnopqrst"
+          const result = yield* run({
+            command: `node -e "process.stdout.write('password=' + ' '.repeat(40000) + '${secret}')"`,
+          })
+          const outputPath = typeof result.metadata.outputPath === "string" ? result.metadata.outputPath : undefined
+
+          expect(result.output).not.toContain(secret)
+          expect(result.metadata.output).not.toContain(secret)
+          expect(outputPath).toBeDefined()
+          expect(yield* Effect.promise(() => Bun.file(outputPath!).text())).not.toContain(secret)
+        }),
+      )
+    }),
+  )
+
   it.live(
     "preserves output when aborted",
     () =>

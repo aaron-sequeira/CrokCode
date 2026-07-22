@@ -1,13 +1,13 @@
-import { SessionV1 } from "@opencode-ai/core/v1/session"
-import { Database } from "@opencode-ai/core/database/database"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { SessionV1 } from "@crokcode/core/v1/session"
+import { Database } from "@crokcode/core/database/database"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { expect } from "bun:test"
 import { tool } from "ai"
-import { Cause, Effect, Exit, Fiber, Layer, Stream } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer, Schema, Stream } from "effect"
 import path from "path"
 import z from "zod"
-import type { Agent } from "../../src/agent/agent"
+import { Agent } from "../../src/agent/agent"
 import { Provider } from "@/provider/provider"
 
 import { Session } from "@/session/session"
@@ -17,15 +17,19 @@ import { SessionProcessor } from "../../src/session/processor"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { SessionSummary } from "../../src/session/summary"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
 import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { raw, reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
-import { ProviderV2 } from "@opencode-ai/core/provider"
-import { ModelV2 } from "@opencode-ai/core/model"
-import { SessionProjector } from "@opencode-ai/core/session/projector"
-import { LLMEvent } from "@opencode-ai/llm"
+import { ProviderV2 } from "@crokcode/core/provider"
+import { ModelV2 } from "@crokcode/core/model"
+import { SessionProjector } from "@crokcode/core/session/projector"
+import { LLMEvent } from "@crokcode/llm"
+import { GuardBlockedError } from "@/guard"
+import { Tool } from "@/tool/tool"
+import { EffectBridge } from "@/effect/bridge"
+import { Truncate } from "@/tool/truncate"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -209,6 +213,54 @@ const providerErrorLLM = Layer.succeed(
 const providerErrorEnv = LayerNode.compile(root, [...replacements, [LLM.node, providerErrorLLM]])
 const itProviderError = testEffect(providerErrorEnv)
 
+const guardBlockedLLM = Layer.succeed(
+  LLM.Service,
+  LLM.Service.of({
+    stream: (input) =>
+      Stream.concat(
+        Stream.make(
+          LLMEvent.stepStart({ index: 0 }),
+          LLMEvent.toolInputStart({ id: "call-1", name: "lookup" }),
+          LLMEvent.toolInputEnd({ id: "call-1", name: "lookup" }),
+          LLMEvent.toolCall({ id: "call-1", name: "lookup", input: {} }),
+        ),
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const execute = input.tools.lookup?.execute
+            if (!execute) return yield* Effect.die(new Error("lookup tool is not executable"))
+            const error = yield* Effect.promise(() =>
+              execute({}, { toolCallId: "call-1", messages: [], abortSignal: new AbortController().signal }).then(
+                () => {
+                  throw new Error("lookup tool should have failed")
+                },
+                (error: unknown) => error,
+              ),
+            )
+            return Stream.make(
+              LLMEvent.toolResult({
+                id: "call-1",
+                name: "lookup",
+                result: { type: "error", value: error },
+              }),
+              LLMEvent.stepFinish({ index: 0, reason: "stop" }),
+              LLMEvent.finish({ reason: "stop" }),
+            )
+          }),
+        ),
+      ),
+  }),
+)
+const guardBlockedEnv = LayerNode.compile(
+  LayerNode.group([
+    root,
+    Agent.node,
+    Truncate.node,
+    LayerNode.make({ service: TestLLMServer, layer: TestLLMServer.layer, deps: [] }),
+  ]),
+  [...replacements, [LLM.node, guardBlockedLLM]],
+)
+const itGuardBlocked = testEffect(guardBlockedEnv)
+
 const fragmentFailureLLM = Layer.succeed(
   LLM.Service,
   LLM.Service.of({
@@ -236,6 +288,90 @@ const boot = Effect.fn("test.boot")(function* () {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+itGuardBlocked.live("session.processor stops after a wrapped GuardBlockedError and retains metadata", () =>
+  provideTmpdirServer(
+    ({ dir }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "guard")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+        const bridge = yield* EffectBridge.make()
+        const guard = {
+          status: "blocked" as const,
+          phase: "pre-write" as const,
+          findings: [],
+          dependency_audit: { status: "unavailable" as const },
+          before_snapshot: "snapshot-before",
+        }
+        const def = yield* Tool.define(
+          "lookup",
+          Effect.succeed({
+            description: "lookup",
+            parameters: Schema.Struct({}),
+            execute: (_args, ctx) =>
+              Effect.gen(function* () {
+                yield* ctx.metadata({ metadata: { guard } })
+                return yield* Effect.fail(new GuardBlockedError({ findings: guard.findings })).pipe(Effect.orDie)
+              }),
+          }),
+        ).pipe(Effect.flatMap(Tool.init))
+        const lookup = tool({
+          inputSchema: z.object({}),
+          execute: (args, options) =>
+            bridge.promise(
+              def.execute(args, {
+                sessionID: chat.id,
+                messageID: msg.id,
+                callID: options.toolCallId,
+                agent: "build",
+                abort: options.abortSignal!,
+                messages: [],
+                metadata: (value) =>
+                  handle.updateToolCall(options.toolCallId, (part) => ({
+                    ...part,
+                    state: {
+                      status: "running",
+                      input: args,
+                      title: value.title,
+                      metadata: value.metadata,
+                      time: { start: Date.now() },
+                    },
+                  })),
+                ask: () => Effect.void,
+              }),
+            ),
+        })
+
+        expect(
+          yield* handle.process({
+            user: {
+              id: parent.id,
+              sessionID: chat.id,
+              role: "user",
+              time: parent.time,
+              agent: parent.agent,
+              model: ref,
+            },
+            sessionID: chat.id,
+            model: mdl,
+            agent: agent(),
+            system: [],
+            messages: [{ role: "user", content: "guard" }],
+            tools: { lookup },
+          }),
+        ).toBe("stop")
+        const parts = yield* MessageV2.parts(msg.id)
+        const call = parts.find((part): part is SessionV1.ToolPart => part.type === "tool")
+        expect(call?.state.status).toBe("error")
+        if (call?.state.status === "error") expect(call.state.metadata).toEqual({ guard })
+      }),
+    { config: (url) => providerCfg(url) },
+  ),
+)
 
 it.live("session.processor effect tests capture llm input cleanly", () =>
   provideTmpdirServer(

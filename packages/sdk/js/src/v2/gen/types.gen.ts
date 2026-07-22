@@ -10472,6 +10472,128 @@ export type PartUpdateResponses = {
 
 export type PartUpdateResponse = PartUpdateResponses[keyof PartUpdateResponses]
 
+export type SessionGuardScanData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/guard"
+}
+
+export type SessionGuardScanErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGuardScanError = SessionGuardScanErrors[keyof SessionGuardScanErrors]
+
+export type SessionGuardScanResponses = {
+  /**
+   * Guard scan result
+   */
+  200: {
+    status: "blocked" | "warning" | "accepted" | "discarded" | "reverted" | "fixed" | "safe" | "unavailable"
+    phase: "pre-write" | "post-shell" | "manual"
+    findings: Array<{
+      id: string
+      rule_id: string
+      status: "blocked" | "warning" | "accepted" | "discarded" | "reverted" | "fixed" | "safe" | "unavailable"
+      line?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      severity: "critical" | "warning"
+      confidence: "high" | "medium"
+      source: "secret" | "execution" | "injection" | "rendering" | "transport" | "dependency"
+      file: string
+      evidence: string
+      remediation: string
+      resolution_reason?: string
+    }>
+    changes?: Array<{
+      file: string
+      diff: string
+    }>
+    dependency_audit: {
+      status: "unavailable"
+    }
+    before_snapshot?: string
+  }
+}
+
+export type SessionGuardScanResponse = SessionGuardScanResponses[keyof SessionGuardScanResponses]
+
+export type SessionGuardResolveData = {
+  body?: {
+    action: "accept" | "discard" | "revert"
+    reason?: string
+  }
+  path: {
+    sessionID: string
+    messageID: string
+    partID: string
+    findingID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/message/{messageID}/part/{partID}/guard/{findingID}"
+}
+
+export type SessionGuardResolveErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGuardResolveError = SessionGuardResolveErrors[keyof SessionGuardResolveErrors]
+
+export type SessionGuardResolveResponses = {
+  /**
+   * Updated Guard scan result
+   */
+  200: {
+    status: "blocked" | "warning" | "accepted" | "discarded" | "reverted" | "fixed" | "safe" | "unavailable"
+    phase: "pre-write" | "post-shell" | "manual"
+    findings: Array<{
+      id: string
+      rule_id: string
+      status: "blocked" | "warning" | "accepted" | "discarded" | "reverted" | "fixed" | "safe" | "unavailable"
+      line?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      severity: "critical" | "warning"
+      confidence: "high" | "medium"
+      source: "secret" | "execution" | "injection" | "rendering" | "transport" | "dependency"
+      file: string
+      evidence: string
+      remediation: string
+      resolution_reason?: string
+    }>
+    changes?: Array<{
+      file: string
+      diff: string
+    }>
+    dependency_audit: {
+      status: "unavailable"
+    }
+    before_snapshot?: string
+  }
+}
+
+export type SessionGuardResolveResponse = SessionGuardResolveResponses[keyof SessionGuardResolveResponses]
+
 export type SyncStartData = {
   body?: never
   path?: never

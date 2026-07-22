@@ -84,8 +84,8 @@ opencode attach http://10.20.30.40:4096
 | <nobr><code>{"--continue"}</code></nobr> | `-c`  | Continuar a última sessão                                                         |
 | <nobr><code>{"--session"}</code></nobr>  | `-s`  | ID da sessão para continuar                                                       |
 | <nobr><code>{"--fork"}</code></nobr>     |       | Bifurcar a sessão ao continuar (use com `--continue` ou `--session`)              |
-| <nobr><code>{"--password"}</code></nobr> | `-p`  | Senha de autenticação básica (padrão: `OPENCODE_SERVER_PASSWORD`)                 |
-| <nobr><code>{"--username"}</code></nobr> | `-u`  | Usuário de autenticação básica (padrão: `OPENCODE_SERVER_USERNAME` ou `opencode`) |
+| <nobr><code>{"--password"}</code></nobr> | `-p`  | Senha de autenticação básica (padrão: `CROKCODE_SERVER_PASSWORD`)                 |
+| <nobr><code>{"--username"}</code></nobr> | `-u`  | Usuário de autenticação básica (padrão: `CROKCODE_SERVER_USERNAME` ou `opencode`) |
 
 ---
 
@@ -352,8 +352,8 @@ opencode run --attach http://localhost:4096 "Explique async/await em JavaScript"
 | <nobr><code>{"--format"}</code></nobr>   |       | Formato: padrão (formatado) ou json (eventos JSON brutos)                         |
 | <nobr><code>{"--title"}</code></nobr>    |       | Título para a sessão (usa o prompt truncado se nenhum valor for fornecido)        |
 | <nobr><code>{"--attach"}</code></nobr>   |       | Anexe a um servidor opencode em execução (por exemplo, http://localhost:4096)     |
-| <nobr><code>{"--password"}</code></nobr> | `-p`  | Senha de autenticação básica (padrão: `OPENCODE_SERVER_PASSWORD`)                 |
-| <nobr><code>{"--username"}</code></nobr> | `-u`  | Usuário de autenticação básica (padrão: `OPENCODE_SERVER_USERNAME` ou `opencode`) |
+| <nobr><code>{"--password"}</code></nobr> | `-p`  | Senha de autenticação básica (padrão: `CROKCODE_SERVER_PASSWORD`)                 |
+| <nobr><code>{"--username"}</code></nobr> | `-u`  | Usuário de autenticação básica (padrão: `CROKCODE_SERVER_USERNAME` ou `opencode`) |
 | <nobr><code>{"--dir"}</code></nobr>      |       | Diretório de execução, ou caminho no servidor remoto ao anexar                    |
 | <nobr><code>{"--variant"}</code></nobr>  |       | Variante do modelo (nível de raciocínio específico do provedor)                   |
 | <nobr><code>{"--thinking"}</code></nobr> |       | Mostrar blocos de pensamento                                                      |
@@ -369,7 +369,7 @@ Inicie um servidor opencode sem cabeça para acesso à API. Confira a [documenta
 opencode serve
 ```
 
-Isso inicia um servidor HTTP que fornece acesso à funcionalidade do opencode sem a interface TUI. Defina `OPENCODE_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `opencode`).
+Isso inicia um servidor HTTP que fornece acesso à funcionalidade do opencode sem a interface TUI. Defina `CROKCODE_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `opencode`).
 
 #### Opções
 
@@ -465,7 +465,7 @@ Inicie um servidor opencode sem cabeça com uma interface web.
 opencode web
 ```
 
-Isso inicia um servidor HTTP e abre um navegador para acessar o opencode através de uma interface web. Defina `OPENCODE_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `opencode`).
+Isso inicia um servidor HTTP e abre um navegador para acessar o opencode através de uma interface web. Defina `CROKCODE_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `opencode`).
 
 #### Opções
 
@@ -564,29 +564,29 @@ O opencode pode ser configurado usando variáveis de ambiente.
 
 | Variável                              | Tipo    | Descrição                                                             |
 | ------------------------------------- | ------- | --------------------------------------------------------------------- |
-| `OPENCODE_AUTO_SHARE`                 | boolean | Compartilhar sessões automaticamente                                  |
-| `OPENCODE_GIT_BASH_PATH`              | string  | Caminho para o executável do Git Bash no Windows                      |
-| `OPENCODE_CONFIG`                     | string  | Caminho para o arquivo de configuração                                |
-| `OPENCODE_CONFIG_DIR`                 | string  | Caminho para o diretório de configuração                              |
-| `OPENCODE_CONFIG_CONTENT`             | string  | Conteúdo de configuração json inline                                  |
-| `OPENCODE_DISABLE_AUTOUPDATE`         | boolean | Desabilitar verificações de atualização automática                    |
-| `OPENCODE_DISABLE_PRUNE`              | boolean | Desabilitar a poda de dados antigos                                   |
-| `OPENCODE_DISABLE_TERMINAL_TITLE`     | boolean | Desabilitar atualizações automáticas do título do terminal            |
-| `OPENCODE_PERMISSION`                 | string  | Configuração de permissões json inline                                |
-| `OPENCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Desabilitar plugins padrão                                            |
-| `OPENCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Desabilitar downloads automáticos do servidor LSP                     |
-| `OPENCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Habilitar modelos experimentais                                       |
-| `OPENCODE_DISABLE_AUTOCOMPACT`        | boolean | Desabilitar compactação automática de contexto                        |
-| `OPENCODE_DISABLE_CLAUDE_CODE`        | boolean | Desabilitar leitura de `.claude` (prompt + habilidades)               |
-| `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Desabilitar leitura de `~/.claude/CLAUDE.md`                          |
-| `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Desabilitar carregamento de `.claude/skills`                          |
-| `OPENCODE_DISABLE_MODELS_FETCH`       | boolean | Desabilitar busca de modelos de fontes remotas                        |
-| `OPENCODE_FAKE_VCS`                   | string  | Provedor VCS falso para fins de teste                                 |
-| `OPENCODE_CLIENT`                     | string  | Identificador do cliente (padrão é `cli`)                             |
-| `OPENCODE_ENABLE_EXA`                 | boolean | Habilitar ferramentas de busca web Exa                                |
-| `OPENCODE_SERVER_PASSWORD`            | string  | Habilitar autenticação básica para `serve`/`web`                      |
-| `OPENCODE_SERVER_USERNAME`            | string  | Substituir nome de usuário de autenticação básica (padrão `opencode`) |
-| `OPENCODE_MODELS_URL`                 | string  | URL personalizada para buscar configuração de modelos                 |
+| `CROKCODE_AUTO_SHARE`                 | boolean | Compartilhar sessões automaticamente                                  |
+| `CROKCODE_GIT_BASH_PATH`              | string  | Caminho para o executável do Git Bash no Windows                      |
+| `CROKCODE_CONFIG`                     | string  | Caminho para o arquivo de configuração                                |
+| `CROKCODE_CONFIG_DIR`                 | string  | Caminho para o diretório de configuração                              |
+| `CROKCODE_CONFIG_CONTENT`             | string  | Conteúdo de configuração json inline                                  |
+| `CROKCODE_DISABLE_AUTOUPDATE`         | boolean | Desabilitar verificações de atualização automática                    |
+| `CROKCODE_DISABLE_PRUNE`              | boolean | Desabilitar a poda de dados antigos                                   |
+| `CROKCODE_DISABLE_TERMINAL_TITLE`     | boolean | Desabilitar atualizações automáticas do título do terminal            |
+| `CROKCODE_PERMISSION`                 | string  | Configuração de permissões json inline                                |
+| `CROKCODE_DISABLE_DEFAULT_PLUGINS`    | boolean | Desabilitar plugins padrão                                            |
+| `CROKCODE_DISABLE_LSP_DOWNLOAD`       | boolean | Desabilitar downloads automáticos do servidor LSP                     |
+| `CROKCODE_ENABLE_EXPERIMENTAL_MODELS` | boolean | Habilitar modelos experimentais                                       |
+| `CROKCODE_DISABLE_AUTOCOMPACT`        | boolean | Desabilitar compactação automática de contexto                        |
+| `CROKCODE_DISABLE_CLAUDE_CODE`        | boolean | Desabilitar leitura de `.claude` (prompt + habilidades)               |
+| `CROKCODE_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Desabilitar leitura de `~/.claude/CLAUDE.md`                          |
+| `CROKCODE_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Desabilitar carregamento de `.claude/skills`                          |
+| `CROKCODE_DISABLE_MODELS_FETCH`       | boolean | Desabilitar busca de modelos de fontes remotas                        |
+| `CROKCODE_FAKE_VCS`                   | string  | Provedor VCS falso para fins de teste                                 |
+| `CROKCODE_CLIENT`                     | string  | Identificador do cliente (padrão é `cli`)                             |
+| `CROKCODE_ENABLE_EXA`                 | boolean | Habilitar ferramentas de busca web Exa                                |
+| `CROKCODE_SERVER_PASSWORD`            | string  | Habilitar autenticação básica para `serve`/`web`                      |
+| `CROKCODE_SERVER_USERNAME`            | string  | Substituir nome de usuário de autenticação básica (padrão `opencode`) |
+| `CROKCODE_MODELS_URL`                 | string  | URL personalizada para buscar configuração de modelos                 |
 
 ---
 
@@ -596,21 +596,21 @@ Essas variáveis de ambiente habilitam recursos experimentais que podem mudar ou
 
 | Variável                                        | Tipo    | Descrição                                                 |
 | ----------------------------------------------- | ------- | --------------------------------------------------------- |
-| `OPENCODE_EXPERIMENTAL`                         | boolean | Habilitar recursos experimentais sob o sinalizador global |
-| `OPENCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Habilitar descoberta de ícones                            |
-| `OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Desabilitar cópia ao selecionar no TUI                    |
-| `OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Tempo limite padrão para comandos bash em ms              |
-| `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Máximo de tokens de saída para respostas LLM              |
-| `OPENCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Habilitar monitoramento de arquivos para todo o diretório |
-| `OPENCODE_EXPERIMENTAL_OXFMT`                   | boolean | Habilitar formatador oxfmt                                |
-| `OPENCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Habilitar ferramenta LSP experimental                     |
-| `OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Desabilitar monitoramento de arquivos                     |
-| `OPENCODE_EXPERIMENTAL_EXA`                     | boolean | Habilitar recursos experimentais do Exa                   |
-| `OPENCODE_EXPERIMENTAL_LSP_TY`                  | boolean | Habilitar TY LSP para arquivos python                     |
-| `OPENCODE_EXPERIMENTAL_PLAN_MODE`               | boolean | Habilitar modo de plano                                   |
-| `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`    | boolean | Habilitar tarefas de subagentes em segundo plano          |
-| `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`            | boolean | Habilitar sistema de eventos experimental                 |
-| `OPENCODE_EXPERIMENTAL_NATIVE_LLM`              | boolean | Habilitar caminho nativo de requisição LLM                |
-| `OPENCODE_EXPERIMENTAL_PARALLEL`                | boolean | Habilitar execução paralela de busca web                  |
-| `OPENCODE_EXPERIMENTAL_SCOUT`                   | boolean | Habilitar subagente Scout                                 |
-| `OPENCODE_EXPERIMENTAL_WORKSPACES`              | boolean | Habilitar suporte a espaços de trabalho                   |
+| `CROKCODE_EXPERIMENTAL`                         | boolean | Habilitar recursos experimentais sob o sinalizador global |
+| `CROKCODE_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Habilitar descoberta de ícones                            |
+| `CROKCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Desabilitar cópia ao selecionar no TUI                    |
+| `CROKCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Tempo limite padrão para comandos bash em ms              |
+| `CROKCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Máximo de tokens de saída para respostas LLM              |
+| `CROKCODE_EXPERIMENTAL_FILEWATCHER`             | boolean | Habilitar monitoramento de arquivos para todo o diretório |
+| `CROKCODE_EXPERIMENTAL_OXFMT`                   | boolean | Habilitar formatador oxfmt                                |
+| `CROKCODE_EXPERIMENTAL_LSP_TOOL`                | boolean | Habilitar ferramenta LSP experimental                     |
+| `CROKCODE_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Desabilitar monitoramento de arquivos                     |
+| `CROKCODE_EXPERIMENTAL_EXA`                     | boolean | Habilitar recursos experimentais do Exa                   |
+| `CROKCODE_EXPERIMENTAL_LSP_TY`                  | boolean | Habilitar TY LSP para arquivos python                     |
+| `CROKCODE_EXPERIMENTAL_PLAN_MODE`               | boolean | Habilitar modo de plano                                   |
+| `CROKCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`    | boolean | Habilitar tarefas de subagentes em segundo plano          |
+| `CROKCODE_EXPERIMENTAL_EVENT_SYSTEM`            | boolean | Habilitar sistema de eventos experimental                 |
+| `CROKCODE_EXPERIMENTAL_NATIVE_LLM`              | boolean | Habilitar caminho nativo de requisição LLM                |
+| `CROKCODE_EXPERIMENTAL_PARALLEL`                | boolean | Habilitar execução paralela de busca web                  |
+| `CROKCODE_EXPERIMENTAL_SCOUT`                   | boolean | Habilitar subagente Scout                                 |
+| `CROKCODE_EXPERIMENTAL_WORKSPACES`              | boolean | Habilitar suporte a espaços de trabalho                   |

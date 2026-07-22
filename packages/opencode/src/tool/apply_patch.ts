@@ -2,18 +2,20 @@ import * as path from "path"
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { Watcher } from "@opencode-ai/core/filesystem/watcher"
+import { Watcher } from "@crokcode/core/filesystem/watcher"
 import { InstanceState } from "@/effect/instance-state"
 import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import { trimDiff } from "./edit"
 import { LSP } from "@/lsp/lsp"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import DESCRIPTION from "./apply_patch.txt"
-import { FileSystem } from "@opencode-ai/core/filesystem"
+import { FileSystem } from "@crokcode/core/filesystem"
 import { Format } from "../format"
 import * as Bom from "@/util/bom"
+import { Guard, GuardBlockedError } from "@/guard"
+import { containsPath } from "@/project/instance-context"
 
 export const Parameters = Schema.Struct({
   patchText: Schema.String.annotate({ description: "The full patch text that describes all changes to be made" }),
@@ -26,6 +28,7 @@ export const ApplyPatchTool = Tool.define(
     const afs = yield* FSUtil.Service
     const format = yield* Format.Service
     const events = yield* EventV2Bridge.Service
+    const guard = yield* Guard.Service
 
     const run = Effect.fn("ApplyPatchTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -53,6 +56,37 @@ export const ApplyPatchTool = Tool.define(
       }
 
       const instance = yield* InstanceState.context
+      const preflightChanges = hunks.flatMap((hunk) => {
+        if (hunk.type === "delete") return []
+        const source = path.resolve(instance.directory, hunk.path)
+        const file = path.resolve(instance.directory, hunk.type === "update" ? hunk.move_path ?? hunk.path : hunk.path)
+        if ((containsPath(source, instance) && containsPath(file, instance)) || !/\.(?:[cm]?[jt]sx?|json)$/i.test(file)) {
+          return []
+        }
+        const before = hunk.type === "add" ? "" : hunk.chunks.flatMap((chunk) => chunk.old_lines).join("\n")
+        const after = hunk.type === "add" ? hunk.contents : hunk.chunks.flatMap((chunk) => chunk.new_lines).join("\n")
+        return [{ file, before, after, diff: trimDiff(createTwoFilesPatch(file, file, before, after)) }]
+      })
+      const preflight = yield* guard.scan(preflightChanges)
+      if (preflight.status === "blocked") {
+        const files = preflightChanges.map((change) => ({
+          filePath: change.file,
+          relativePath: path.relative(instance.worktree, change.file).replaceAll("\\", "/"),
+          type: "update" as const,
+          patch: Guard.changeDiff(preflight, change.file),
+          additions: change.after.split("\n").length,
+          deletions: 0,
+        }))
+        yield* ctx.metadata({
+          metadata: {
+            filepath: files.map((file) => file.relativePath).join(", "),
+            diff: preflight.changes?.map((change) => change.diff).join("\n") ?? "",
+            files,
+            guard: preflight,
+          },
+        })
+        return yield* Effect.fail(new GuardBlockedError({ findings: preflight.findings }))
+      }
 
       // Validate file paths and check permissions
       const fileChanges: Array<{
@@ -66,8 +100,6 @@ export const ApplyPatchTool = Tool.define(
         deletions: number
         bom: boolean
       }> = []
-
-      let totalDiff = ""
 
       for (const hunk of hunks) {
         const filePath = path.resolve(instance.directory, hunk.path)
@@ -99,7 +131,6 @@ export const ApplyPatchTool = Tool.define(
               bom: next.bom,
             })
 
-            totalDiff += diff + "\n"
             break
           }
 
@@ -154,7 +185,6 @@ export const ApplyPatchTool = Tool.define(
               bom,
             })
 
-            totalDiff += diff + "\n"
             break
           }
 
@@ -184,7 +214,6 @@ export const ApplyPatchTool = Tool.define(
               bom: source.bom,
             })
 
-            totalDiff += deleteDiff + "\n"
             break
           }
         }
@@ -203,14 +232,38 @@ export const ApplyPatchTool = Tool.define(
 
       // Check permissions if needed
       const relativePaths = fileChanges.map((c) => path.relative(instance.worktree, c.filePath).replaceAll("\\", "/"))
+      const scan = yield* guard.scan(
+        fileChanges.map((change) => ({
+          file: change.movePath ?? change.filePath,
+          before: change.oldContent,
+          after: change.newContent,
+          diff: change.diff,
+        })),
+      )
+      const safeFiles = files.map((file) => ({
+        ...file,
+        patch: Guard.changeDiff(scan, file.movePath ?? file.filePath),
+      }))
+      const safeDiff = scan.changes?.map((change) => change.diff).join("\n") ?? ""
+      if (scan.status === "blocked") {
+        yield* ctx.metadata({
+          metadata: { filepath: relativePaths.join(", "), diff: safeDiff, files: safeFiles, guard: scan },
+        })
+        return yield* Effect.fail(new GuardBlockedError({ findings: scan.findings }))
+      }
+      if (scan.status === "warning") {
+        yield* ctx.metadata({
+          metadata: { filepath: relativePaths.join(", "), diff: safeDiff, files: safeFiles, guard: scan },
+        })
+      }
       yield* ctx.ask({
         permission: "edit",
         patterns: relativePaths,
         always: ["*"],
         metadata: {
           filepath: relativePaths.join(", "),
-          diff: totalDiff,
-          files,
+          diff: safeDiff,
+          files: safeFiles,
         },
       })
 
@@ -295,9 +348,10 @@ export const ApplyPatchTool = Tool.define(
       return {
         title: output,
         metadata: {
-          diff: totalDiff,
-          files,
+          diff: safeDiff,
+          files: safeFiles,
           diagnostics,
+          ...(scan.status === "warning" ? { guard: scan } : {}),
         },
         output,
       }

@@ -1,15 +1,15 @@
 import { createEffect, createMemo, createResource, createSignal, Match, onMount, Show, Switch, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useNavigate, useParams } from "@solidjs/router"
-import { IconButton } from "@opencode-ai/ui/icon-button"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Button } from "@opencode-ai/ui/button"
-import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
-import { useTheme } from "@opencode-ai/ui/theme/context"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { IconButton } from "@crokcode/ui/icon-button"
+import { Icon } from "@crokcode/ui/icon"
+import { Button } from "@crokcode/ui/button"
+import { Tooltip, TooltipKeybind } from "@crokcode/ui/tooltip"
+import { useTheme } from "@crokcode/ui/theme/context"
+import { IconButtonV2 } from "@crokcode/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@crokcode/ui/v2/icon"
+import { KeybindV2 } from "@crokcode/ui/v2/keybind-v2"
+import { TooltipV2 } from "@crokcode/ui/v2/tooltip-v2"
 
 import { LayoutRoute, useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
@@ -750,9 +750,9 @@ function TitlebarUpdateIconButton(props: { state: TitlebarUpdatePillState }) {
 function ChannelIndicator() {
   return (
     <>
-      {["beta", "dev"].includes(import.meta.env.VITE_OPENCODE_CHANNEL) && (
+      {["beta", "dev"].includes(import.meta.env.VITE_CROKCODE_CHANNEL) && (
         <div class="bg-icon-interactive-base text-[#FFF] font-medium px-2 rounded-sm uppercase font-mono">
-          {import.meta.env.VITE_OPENCODE_CHANNEL.toUpperCase()}
+          {import.meta.env.VITE_CROKCODE_CHANNEL.toUpperCase()}
         </div>
       )}
     </>

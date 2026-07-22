@@ -36,7 +36,7 @@ import type {
   TextPart,
   ReasoningPart,
   SessionStatus,
-} from "@opencode-ai/sdk/v2"
+} from "@crokcode/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
 import { webSearchProviderLabel } from "../../util/tool-display"
@@ -79,9 +79,11 @@ import { collapseToolOutput } from "../../util/collapse-tool-output"
 import { usePluginRuntime } from "../../plugin/runtime"
 import { DialogRetryAction } from "../../component/dialog-retry-action"
 import { getRevertDiffFiles } from "../../util/revert-diff"
-import { OPENCODE_BASE_MODE, useBindings, useCommandShortcut, useOpencodeKeymap } from "../../keymap"
+import { CROKCODE_BASE_MODE, useBindings, useCommandShortcut, useOpencodeKeymap } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
 import { LocationProvider } from "../../context/location"
+import { GuardCards } from "./guard-card"
+import { guardDialogText, guardShellCommand, guardSummary, toolHasUnresolvedGuard } from "./guard"
 
 addDefaultParsers(parsers.parsers)
 
@@ -505,6 +507,20 @@ export function Session() {
       },
       run: () => {
         dialog.replace(() => <DialogSessionRename session={route.sessionID} />)
+      },
+    },
+    {
+      title: "Scan workspace with Guard",
+      value: "session.guard",
+      category: "Session",
+      slash: {
+        name: "guard",
+      },
+      run: async () => {
+        await sdk.client.session.guard
+          .scan({ sessionID: route.sessionID }, { throwOnError: true })
+          .then((response) => DialogAlert.show(dialog, "CROK GUARD", guardDialogText(response.data)))
+          .catch((error) => toast.show({ variant: "error", message: `Guard scan failed: ${errorMessage(error)}` }))
       },
     },
     {
@@ -1105,12 +1121,12 @@ export function Session() {
   }))
 
   useBindings(() => ({
-    mode: OPENCODE_BASE_MODE,
+    mode: CROKCODE_BASE_MODE,
     bindings: tuiConfig.keybinds.gather("session", sessionBindingCommands),
   }))
 
   useBindings(() => ({
-    mode: OPENCODE_BASE_MODE,
+    mode: CROKCODE_BASE_MODE,
     enabled: foregroundTasks().length > 0,
     priority: 1,
     bindings: tuiConfig.keybinds.get("session.background"),
@@ -1706,6 +1722,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   // Hide tool if showDetails is false and tool completed successfully
   const shouldHide = createMemo(() => {
     if (ctx.showDetails()) return false
+    if (toolHasUnresolvedGuard(props.part.state.status === "pending" ? {} : props.part.state.metadata)) return false
     if (props.part.state.status !== "completed") return false
     return true
   })
@@ -2042,6 +2059,9 @@ function Shell(props: ToolProps) {
   const ctx = use()
   const isRunning = createMemo(() => props.part.state.status === "running")
   const output = createMemo(() => stripAnsi(stringValue(props.metadata.output)?.trim() ?? ""))
+  const command = createMemo(
+    () => stringValue(props.metadata.command) ?? guardShellCommand(props.metadata, stringValue(props.input.command)),
+  )
   const [expanded, setExpanded] = createSignal(false)
   const maxLines = 10
   const maxChars = createMemo(() => maxLines * Math.max(20, ctx.width - 6))
@@ -2066,32 +2086,40 @@ function Shell(props: ToolProps) {
   })
 
   return (
-    <Switch>
-      <Match when={stringValue(props.metadata.output) !== undefined}>
-        <BlockTool
-          title={title()}
-          part={props.part}
-          onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
-        >
-          <box gap={1}>
-            <Show when={isRunning()} fallback={<text fg={theme.text}>$ {stringValue(props.input.command)}</text>}>
-              <Spinner color={theme.text}>{stringValue(props.input.command)}</Spinner>
-            </Show>
-            <Show when={output()}>
-              <text fg={theme.text}>{limited()}</text>
-            </Show>
-            <Show when={collapsed().overflow}>
-              <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
-            </Show>
-          </box>
-        </BlockTool>
-      </Match>
-      <Match when={true}>
-        <InlineTool icon="$" pending="Writing command..." complete={stringValue(props.input.command)} part={props.part}>
-          {stringValue(props.input.command)}
-        </InlineTool>
-      </Match>
-    </Switch>
+    <>
+      <Switch>
+        <Match when={stringValue(props.metadata.output) !== undefined}>
+          <BlockTool
+            title={title()}
+            part={props.part}
+            onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
+          >
+            <box gap={1}>
+              <Show when={isRunning()} fallback={<text fg={theme.text}>$ {command()}</text>}>
+                <Spinner color={theme.text}>{command()}</Spinner>
+              </Show>
+              <Show when={output()}>
+                <text fg={theme.text}>{limited()}</text>
+              </Show>
+              <Show when={collapsed().overflow}>
+                <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
+              </Show>
+            </box>
+          </BlockTool>
+        </Match>
+        <Match when={true}>
+          <InlineTool
+            icon="$"
+            pending="Writing command..."
+            complete={command()}
+            part={props.part}
+          >
+            {command()}
+          </InlineTool>
+        </Match>
+      </Switch>
+      <GuardCards metadata={props.metadata} part={props.part} />
+    </>
   )
 }
 
@@ -2103,32 +2131,35 @@ function Write(props: ToolProps) {
   })
 
   return (
-    <Switch>
-      <Match when={props.metadata.diagnostics !== undefined}>
-        <BlockTool title={"# Wrote " + pathFormatter.format(stringValue(props.input.filePath))} part={props.part}>
-          <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
-            <code
-              conceal={false}
-              fg={theme.text}
-              filetype={filetype(stringValue(props.input.filePath))}
-              syntaxStyle={syntax()}
-              content={code()}
-            />
-          </line_number>
-          <Diagnostics diagnostics={props.metadata.diagnostics} filePath={stringValue(props.input.filePath) ?? ""} />
-        </BlockTool>
-      </Match>
-      <Match when={true}>
-        <InlineTool
-          icon="←"
-          pending="Preparing write..."
-          complete={stringValue(props.input.filePath)}
-          part={props.part}
-        >
-          Write {pathFormatter.format(stringValue(props.input.filePath))}
-        </InlineTool>
-      </Match>
-    </Switch>
+    <>
+      <Switch>
+        <Match when={props.metadata.diagnostics !== undefined}>
+          <BlockTool title={"# Wrote " + pathFormatter.format(stringValue(props.input.filePath))} part={props.part}>
+            <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+              <code
+                conceal={false}
+                fg={theme.text}
+                filetype={filetype(stringValue(props.input.filePath))}
+                syntaxStyle={syntax()}
+                content={code()}
+              />
+            </line_number>
+            <Diagnostics diagnostics={props.metadata.diagnostics} filePath={stringValue(props.input.filePath) ?? ""} />
+          </BlockTool>
+        </Match>
+        <Match when={true}>
+          <InlineTool
+            icon="←"
+            pending="Preparing write..."
+            complete={stringValue(props.input.filePath)}
+            part={props.part}
+          >
+            Write {pathFormatter.format(stringValue(props.input.filePath))}
+          </InlineTool>
+        </Match>
+      </Switch>
+      <GuardCards metadata={props.metadata} part={props.part} />
+    </>
   )
 }
 
@@ -2402,39 +2433,48 @@ function Edit(props: ToolProps) {
   const diffContent = createMemo(() => stringValue(props.metadata.diff) ?? "")
 
   return (
-    <Switch>
-      <Match when={stringValue(props.metadata.diff) !== undefined}>
-        <BlockTool title={"← Edit " + pathFormatter.format(stringValue(props.input.filePath))} part={props.part}>
-          <box paddingLeft={1}>
-            <diff
-              diff={diffContent()}
-              view={view()}
-              filetype={ft()}
-              syntaxStyle={syntax()}
-              showLineNumbers={true}
-              width="100%"
-              wrapMode={ctx.diffWrapMode()}
-              fg={theme.text}
-              addedBg={theme.diffAddedBg}
-              removedBg={theme.diffRemovedBg}
-              contextBg={theme.diffContextBg}
-              addedSignColor={theme.diffHighlightAdded}
-              removedSignColor={theme.diffHighlightRemoved}
-              lineNumberFg={theme.diffLineNumber}
-              lineNumberBg={theme.diffContextBg}
-              addedLineNumberBg={theme.diffAddedLineNumberBg}
-              removedLineNumberBg={theme.diffRemovedLineNumberBg}
-            />
-          </box>
-          <Diagnostics diagnostics={props.metadata.diagnostics} filePath={stringValue(props.input.filePath) ?? ""} />
-        </BlockTool>
-      </Match>
-      <Match when={true}>
-        <InlineTool icon="←" pending="Preparing edit..." complete={stringValue(props.input.filePath)} part={props.part}>
-          Edit {pathFormatter.format(stringValue(props.input.filePath))} {input({ replaceAll: props.input.replaceAll })}
-        </InlineTool>
-      </Match>
-    </Switch>
+    <>
+      <Switch>
+        <Match when={stringValue(props.metadata.diff) !== undefined}>
+          <BlockTool title={"← Edit " + pathFormatter.format(stringValue(props.input.filePath))} part={props.part}>
+            <box paddingLeft={1}>
+              <diff
+                diff={diffContent()}
+                view={view()}
+                filetype={ft()}
+                syntaxStyle={syntax()}
+                showLineNumbers={true}
+                width="100%"
+                wrapMode={ctx.diffWrapMode()}
+                fg={theme.text}
+                addedBg={theme.diffAddedBg}
+                removedBg={theme.diffRemovedBg}
+                contextBg={theme.diffContextBg}
+                addedSignColor={theme.diffHighlightAdded}
+                removedSignColor={theme.diffHighlightRemoved}
+                lineNumberFg={theme.diffLineNumber}
+                lineNumberBg={theme.diffContextBg}
+                addedLineNumberBg={theme.diffAddedLineNumberBg}
+                removedLineNumberBg={theme.diffRemovedLineNumberBg}
+              />
+            </box>
+            <Diagnostics diagnostics={props.metadata.diagnostics} filePath={stringValue(props.input.filePath) ?? ""} />
+          </BlockTool>
+        </Match>
+        <Match when={true}>
+          <InlineTool
+            icon="←"
+            pending="Preparing edit..."
+            complete={stringValue(props.input.filePath)}
+            part={props.part}
+          >
+            Edit {pathFormatter.format(stringValue(props.input.filePath))}{" "}
+            {input({ replaceAll: props.input.replaceAll })}
+          </InlineTool>
+        </Match>
+      </Switch>
+      <GuardCards metadata={props.metadata} part={props.part} />
+    </>
   )
 }
 
@@ -2444,6 +2484,7 @@ function ApplyPatch(props: ToolProps) {
   const pathFormatter = usePathFormatter()
 
   const files = createMemo(() => parseApplyPatchFiles(props.metadata.files))
+  const guard = createMemo(() => guardSummary(props.metadata))
 
   const view = createMemo(() => {
     const diffStyle = ctx.tui.diff_style
@@ -2488,7 +2529,7 @@ function ApplyPatch(props: ToolProps) {
     <Switch>
       <Match when={files().length > 0}>
         <For each={files()}>
-          {(file) => (
+          {(file, index) => (
             <BlockTool title={title(file)} part={props.part}>
               <Show
                 when={file.type !== "delete"}
@@ -2501,6 +2542,17 @@ function ApplyPatch(props: ToolProps) {
                 <Diff diff={file.patch} filePath={file.filePath} />
                 <Diagnostics diagnostics={props.metadata.diagnostics} filePath={file.movePath ?? file.filePath} />
               </Show>
+              <GuardCards
+                metadata={props.metadata}
+                part={props.part}
+                file={file.movePath ?? file.filePath}
+                findings={guard().inline.filter(
+                  (finding) =>
+                    finding.file.replaceAll("\\", "/") === (file.movePath ?? file.filePath).replaceAll("\\", "/"),
+                )}
+                additional={index() === 0 ? guard().additional : []}
+                showStatus={index() === 0}
+              />
             </BlockTool>
           )}
         </For>

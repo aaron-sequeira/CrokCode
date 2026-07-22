@@ -1,13 +1,13 @@
 import "@/index.css"
 import * as Sentry from "@sentry/solid"
-import { I18nProvider } from "@opencode-ai/ui/context"
-import { DialogProvider } from "@opencode-ai/ui/context/dialog"
-import { FileComponentProvider } from "@opencode-ai/ui/context/file"
-import { MarkedProvider } from "@opencode-ai/ui/context/marked"
-import { File } from "@opencode-ai/session-ui/file"
-import { Font } from "@opencode-ai/ui/font"
-import { Splash } from "@opencode-ai/ui/logo"
-import { ThemeProvider } from "@opencode-ai/ui/theme/context"
+import { I18nProvider } from "@crokcode/ui/context"
+import { DialogProvider } from "@crokcode/ui/context/dialog"
+import { FileComponentProvider } from "@crokcode/ui/context/file"
+import { MarkedProvider } from "@crokcode/ui/context/marked"
+import { File } from "@crokcode/session-ui/file"
+import { Font } from "@crokcode/ui/font"
+import { Splash } from "@crokcode/ui/logo"
+import { ThemeProvider } from "@crokcode/ui/theme/context"
 import { MetaProvider } from "@solidjs/meta"
 import {
   type BaseRouterProps,
@@ -21,7 +21,7 @@ import {
 } from "@solidjs/router"
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query"
 import { Effect } from "effect"
-import { base64Encode } from "@opencode-ai/core/util/encode"
+import { base64Encode } from "@crokcode/core/util/encode"
 import {
   type Component,
   createEffect,
@@ -238,7 +238,7 @@ function UiI18nBridge(props: ParentProps) {
 
 declare global {
   interface Window {
-    __OPENCODE__?: {
+    __CROKCODE__?: {
       deepLinks?: string[]
     }
     api?: {

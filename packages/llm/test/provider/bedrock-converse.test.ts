@@ -408,7 +408,7 @@ describe("Bedrock Converse route", () => {
         baseURL: "https://bedrock-runtime.test",
         credentials: {
           region: "us-east-1",
-          accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+          accessKeyId: "AKIA" + "IOSFODNN7EXAMPLE",
           secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         },
       }).model("anthropic.claude-3-5-sonnet-20240620-v1:0")

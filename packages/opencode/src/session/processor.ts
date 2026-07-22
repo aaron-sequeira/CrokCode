@@ -1,7 +1,7 @@
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
+import { PermissionV1 } from "@crokcode/core/v1/permission"
 import { Image } from "@/image/image"
-import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { SessionV1 } from "@crokcode/core/v1/session"
 import { Cause, Deferred, Effect, Exit, Layer, Context, Scope, Schema } from "effect"
 import * as Stream from "effect/Stream"
 import { Agent } from "@/agent/agent"
@@ -23,8 +23,9 @@ import { Question } from "@/question"
 import { errorMessage } from "@/util/error"
 import { isRecord } from "@/util/record"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { Database } from "@opencode-ai/core/database/database"
-import { Usage, type LLMEvent } from "@opencode-ai/llm"
+import { Database } from "@crokcode/core/database/database"
+import { GuardBlockedError } from "@/guard"
+import { Usage, type LLMEvent } from "@crokcode/llm"
 
 const DOOM_LOOP_THRESHOLD = 3
 export type Result = "compact" | "stop" | "continue"
@@ -197,6 +198,9 @@ const layer = Layer.effect(
             time: { start: match.part.state.time.start, end: Date.now() },
           },
         })
+        if (error instanceof GuardBlockedError) {
+          ctx.blocked = true
+        }
         if (error instanceof PermissionV1.RejectedError || error instanceof Question.RejectedError) {
           ctx.blocked = ctx.shouldBreak
         }

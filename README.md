@@ -3,11 +3,11 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="CrokCode logo">
     </picture>
   </a>
 </p>
-<p align="center">The open source AI coding agent.</p>
+<p align="center">CrokCode &mdash; the open source AI coding agent that guards your code.</p>
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
@@ -39,30 +39,162 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![CrokCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/anomalyco/crokcode)
 
 ---
 
 ### Installation
 
-```bash
-# YOLO
-curl -fsSL https://opencode.ai/install | bash
+**macOS, Linux, WSL:**
 
-# Package managers
-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
-brew install opencode              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # Any OS
-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+```bash
+curl -fsSL https://crokcode.tech/install.sh | bash
+```
+
+**Windows PowerShell:**
+
+```powershell
+irm https://crokcode.tech/install.ps1 | iex
+```
+
+Both installers download the release binary, drop it on your `PATH`, and are
+configurable with environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `CROKCODE_VERSION` | Install a specific version |
+| `CROKCODE_INSTALL_DIR` | Custom install directory |
+| `CROKCODE_REPO` | GitHub repo to download releases from |
+| `CROKCODE_BINARY` | Install a locally built binary instead of downloading |
+
+> [!NOTE]
+> Those URLs serve the scripts in this repo (`install.sh` / `install.ps1`). Until
+> `crokcode.tech` is pointed at them and you cut a GitHub release, use the local
+> build below — or set `CROKCODE_REPO=you/crokcode` to pull from your own repo.
+
+#### Build from source
+
+**1. Build the binary** (requires [Bun](https://bun.sh)):
+
+```bash
+bun install
+cd packages/opencode
+bun run script/build.ts --single --skip-install
+```
+
+This produces `packages/opencode/dist/crokcode-<os>-<arch>/bin/crokcode`.
+
+**2. Install it onto your PATH:**
+
+```powershell
+# Windows (PowerShell) - installs to %LOCALAPPDATA%\crokcode\bin and updates PATH
+$env:CROKCODE_BINARY="$PWD\packages\opencode\dist\crokcode-windows-x64\bin\crokcode.exe"; ./install.ps1
+```
+
+```bash
+# macOS / Linux - install the binary you just built
+./install.sh --binary packages/opencode/dist/crokcode-*/bin/crokcode
+```
+
+**3. Launch it:**
+
+```bash
+crokcode              # start the CrokCode TUI in the current directory
+crokcode /path/to/repo   # start in a specific project
+crokcode run "explain this codebase"
+crokcode --help
 ```
 
 > [!TIP]
-> Remove versions older than 0.1.x before installing.
+> Restart your terminal after installing so the updated PATH is picked up.
+
+Once you publish releases to GitHub, the one-line installer works too. Point it
+at your repo with `CROKCODE_REPO`:
+
+```bash
+CROKCODE_REPO=you/crokcode curl -fsSL https://raw.githubusercontent.com/you/crokcode/dev/install | bash
+```
+
+### Plans
+
+CrokCode connects to **CrokAPI**, our hosted gateway (OpenAI-compatible, backed by
+OpenRouter), which serves frontier models including GPT-5.6 Sol, Fable 5,
+Claude Opus 4.8, Kimi K3, GLM 5.2, Gemini 3.5 Pro, DeepSeek V4 and Grok 5.
+
+| Plan | Price | For |
+| --- | --- | --- |
+| **CrokGo** | $5/mo | Getting started |
+| **CrokPro** | $20/mo | Daily driver, higher limits |
+| **Crok-as-you-go** | Top up any amount | Pay only for what you use |
+
+#### Connecting the CLI to CrokAPI
+
+Add a `provider.crokapi` block to your config (`~/.config/crokcode/opencode.jsonc`
+globally, or `opencode.json` in a project). Custom providers are resolved from
+config, so this is what makes the models selectable:
+
+```jsonc
+{
+  "provider": {
+    "crokapi": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "CrokAPI",
+      "options": {
+        "baseURL": "https://<your-project>.supabase.co/functions/v1/crokapi/v1",
+        "apiKey": "crok_..."
+      },
+      "models": {
+        "openai/gpt-5.6-sol": { "name": "GPT-5.6 Sol" },
+        "anthropic/claude-fable-5": { "name": "Fable 5" },
+        "moonshotai/kimi-k3": { "name": "Kimi K3" },
+        "z-ai/glm-5.2": { "name": "GLM 5.2" }
+      }
+    }
+  }
+}
+```
+
+Then select a model as `crokapi/<vendor>/<model>`:
+
+```bash
+crokcode models | grep crokapi
+crokcode run --model crokapi/z-ai/glm-5.2 "hello"
+```
+
+Every call is authenticated against your CrokCode account, checked for an active
+plan or remaining credits, and metered into `usage_events`.
+
+#### CrokAPI backend
+
+The gateway and billing run as Supabase Edge Functions in `supabase/functions/`:
+
+| Function | Auth | Purpose |
+| --- | --- | --- |
+| `crokapi` | CrokCode API key | OpenAI-compatible gateway. Checks entitlement, proxies to OpenRouter, meters tokens. |
+| `stripe-webhook` | Stripe signature | Syncs subscriptions and credits top-ups. |
+| `keys` | Supabase JWT | Create / list / revoke API keys (plaintext shown once). |
+| `checkout` | Supabase JWT | Creates a Stripe Checkout session for a plan. |
+
+Set these secrets before going live:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=sk-or-...
+supabase secrets set STRIPE_SECRET_KEY=sk_live_...
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Then add the webhook in Stripe pointing at `/functions/v1/stripe-webhook`, subscribing to
+`checkout.session.completed` and `customer.subscription.*`.
+
+### CrokCode Guard
+
+Guard is CrokCode's built-in security layer. It scans every proposed change
+*before it reaches disk* and blocks critical findings:
+
+- Hard-blocks added API keys, tokens and private keys
+- Warns on `eval`/`exec`, unsafe HTML rendering, TLS/auth weakening and risky dependencies
+- Redacts detected secrets from evidence, logs and model prompts
+- Snapshot-backed revert for shell commands
 
 ### Desktop App (BETA)
 
@@ -86,14 +218,14 @@ scoop bucket add extras; scoop install extras/opencode-desktop
 
 The install script respects the following priority order for the installation path:
 
-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
+1. `$CROKCODE_INSTALL_DIR` - Custom installation directory
 2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
 3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
 4. `$HOME/.opencode/bin` - Default fallback
 
 ```bash
 # Examples
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+CROKCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
 XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 

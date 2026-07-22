@@ -1,11 +1,11 @@
-import { ImagePreview } from "@opencode-ai/ui/image-preview"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
-import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import type { Prompt, ReferenceInfo } from "@opencode-ai/sdk/v2/client"
+import { ImagePreview } from "@crokcode/ui/image-preview"
+import { useDialog } from "@crokcode/ui/context/dialog"
+import { ProviderIcon } from "@crokcode/ui/provider-icon"
+import { ButtonV2 } from "@crokcode/ui/v2/button-v2"
+import { Icon } from "@crokcode/ui/v2/icon"
+import { KeybindV2 } from "@crokcode/ui/v2/keybind-v2"
+import { TooltipV2 } from "@crokcode/ui/v2/tooltip-v2"
+import type { Prompt, ReferenceInfo } from "@crokcode/sdk/v2/client"
 import { createEffect, createMemo, on, Show } from "solid-js"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
@@ -26,12 +26,12 @@ import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { showToast } from "@/utils/toast"
-import { PromptInputV2, type PromptInputV2Suggestion } from "@opencode-ai/session-ui/v2/prompt-input"
+import { PromptInputV2, type PromptInputV2Suggestion } from "@crokcode/session-ui/v2/prompt-input"
 import {
   createPromptInputV2Controller,
   createPromptInputV2State,
   type PromptInputV2Interaction,
-} from "@opencode-ai/session-ui/v2/prompt-input/interaction"
+} from "@crokcode/session-ui/v2/prompt-input/interaction"
 
 export type PromptInputV2ComposerProps = {
   class?: string

@@ -1,6 +1,8 @@
 import { Effect, Stream } from "effect"
 import os from "os"
-import { createWriteStream } from "node:fs"
+import { createReadStream, createWriteStream } from "node:fs"
+import { rename, unlink } from "node:fs/promises"
+import { once } from "node:events"
 import * as Tool from "./tool"
 import path from "path"
 import { containsPath, type InstanceContext } from "../project/instance-context"
@@ -8,11 +10,11 @@ import { InstanceState } from "@/effect/instance-state"
 import { lazy } from "@/util/lazy"
 import { Language, type Node } from "web-tree-sitter"
 
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { fileURLToPath } from "url"
 import { Config } from "@/config/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
-import { Shell } from "@opencode-ai/core/shell"
+import { Shell } from "@crokcode/core/shell"
 import { ShellID } from "./shell/id"
 
 import * as Truncate from "./truncate"
@@ -21,6 +23,7 @@ import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
 import { BashArity } from "@/permission/arity"
+import { Guard, GuardBlockedError, type GuardScanResult } from "@/guard"
 
 export { Parameters } from "./shell/prompt"
 
@@ -254,6 +257,94 @@ function tail(text: string, maxLines: number, maxBytes: number) {
   }
 }
 
+async function redactSpill(file: string) {
+  const target = `${file}.guard`
+  const output = createWriteStream(target)
+  const failed = new Promise<never>((_resolve, reject) => output.once("error", reject))
+  void failed.catch(() => undefined)
+  const write = async (value: string) => {
+    if (!output.write(value)) await Promise.race([once(output, "drain"), failed])
+  }
+  let carry = ""
+  let suppressToken = false
+  let privateKey = false
+  let keyedValue = false
+  const token = /[A-Za-z0-9_./+=-]/
+  const keyedPrefix =
+    /(?:^|[^A-Za-z0-9_])["']?(?:api[_-]?key|secret|access[_-]?key|auth[_-]?token|token|password|private[_-]?key)["']?\s*[:=]\s*["']?\s*$/i
+
+  const redact = (value: string) => {
+    if (keyedValue) {
+      if (/^\s*["']?\s*$/.test(value)) return value
+      const candidate = value.match(/^(\s*["']?)([A-Za-z0-9_./+=-]+)/)
+      keyedValue = false
+      if (candidate) {
+        value = `${candidate[1]}[REDACTED]${value.slice(candidate[0].length)}`
+      }
+    }
+    if (keyedPrefix.test(value)) keyedValue = true
+    return Guard.redact(value)
+  }
+
+  const redactChunk = (value: string, final = false) => {
+    if (privateKey) return ""
+    if (suppressToken) {
+      const end = Array.from(value).findIndex((char) => !token.test(char))
+      if (end === -1) return ""
+      suppressToken = false
+      value = value.slice(end)
+    }
+    carry += value
+    if (/-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----/.test(carry)) {
+      privateKey = true
+      const safe = redact(carry)
+      carry = ""
+      return safe
+    }
+    if (final) {
+      const safe = redact(carry)
+      carry = ""
+      return safe
+    }
+    if (carry.length <= 4096) return ""
+    let cut = carry.length - 4096
+    if (token.test(carry[cut - 1] ?? "") && token.test(carry[cut] ?? "")) {
+      let start = cut
+      while (start > 0 && token.test(carry[start - 1]!)) start -= 1
+      if (carry.length - start > 65_536) {
+        const safe = redact(carry.slice(0, start)) + "[REDACTED]"
+        carry = ""
+        keyedValue = false
+        suppressToken = true
+        return safe
+      }
+      cut = Math.max(0, start - 128)
+    }
+    const safe = redact(carry.slice(0, cut))
+    carry = carry.slice(cut)
+    return safe
+  }
+
+  try {
+    for await (const chunk of createReadStream(file, { encoding: "utf8" })) await write(redactChunk(chunk))
+    await write(redactChunk("", true))
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        output.once("finish", resolve)
+        output.end()
+      }),
+      failed,
+    ])
+    await unlink(file)
+    await rename(target, file)
+    return true
+  } catch {
+    output.destroy()
+    await Promise.allSettled([unlink(target), unlink(file)])
+    return false
+  }
+}
+
 const parse = Effect.fn("ShellTool.parse")(function* (command: string, ps: boolean) {
   const tree = yield* Effect.promise(() => parser().then((p) => (ps ? p.ps : p.bash).parse(command)))
   if (!tree) throw new Error("Failed to parse command")
@@ -344,6 +435,7 @@ export const ShellTool = Tool.define(
     const trunc = yield* Truncate.Service
     const plugin = yield* Plugin.Service
     const flags = yield* RuntimeFlags.Service
+    const guard = yield* Guard.Service
     const defaultTimeoutMs = flags.bashDefaultTimeoutMs ?? 2 * 60 * 1000
 
     const cygpath = Effect.fn("ShellTool.cygpath")(function* (shell: string, text: string) {
@@ -475,6 +567,7 @@ export const ShellTool = Tool.define(
       yield* ctx.metadata({
         metadata: {
           output: "",
+          command: Guard.redact(input.command),
         },
       })
 
@@ -514,7 +607,8 @@ export const ShellTool = Tool.define(
                     Effect.andThen(
                       ctx.metadata({
                         metadata: {
-                          output: last,
+                          output: Guard.redact(last),
+                          command: Guard.redact(input.command),
                         },
                       }),
                     ),
@@ -524,7 +618,8 @@ export const ShellTool = Tool.define(
 
               return ctx.metadata({
                 metadata: {
-                  output: last,
+                  output: Guard.redact(last),
+                  command: Guard.redact(input.command),
                 },
               })
             }),
@@ -569,7 +664,14 @@ export const ShellTool = Tool.define(
       const end = tail(raw, limits.maxLines, limits.maxBytes)
       if (end.cut) cut = true
       if (!file && end.cut) {
-        file = yield* trunc.write(raw)
+        file = yield* trunc.write(Guard.redact(raw))
+      }
+      if (file && cut) {
+        const redacted = yield* Effect.promise(() => redactSpill(file))
+        if (!redacted) {
+          file = ""
+          meta.push("Shell output was hidden because redaction was unavailable.")
+        }
       }
 
       let output = end.text
@@ -582,10 +684,12 @@ export const ShellTool = Tool.define(
       if (meta.length > 0) {
         output += "\n\n<shell_metadata>\n" + meta.join("\n") + "\n</shell_metadata>"
       }
+      output = Guard.redact(output)
       return {
-        title: input.command,
+        title: Guard.redact(input.command),
         metadata: {
-          output: last || preview(output),
+          output: Guard.redact(last || preview(output)),
+          command: Guard.redact(input.command),
           exit: code,
           truncated: cut,
           ...(cut && file ? { outputPath: file } : {}),
@@ -628,7 +732,8 @@ export const ShellTool = Tool.define(
                 }),
               )
 
-              return yield* run(
+              const guardBefore = yield* guard.captureWorkspace(instanceCtx.worktree)
+              const result = yield* run(
                 {
                   shell,
                   command: params.command,
@@ -638,7 +743,27 @@ export const ShellTool = Tool.define(
                 },
                 ctx,
               )
-            }),
+              const changes = guardBefore ? yield* guard.diffWorkspace(guardBefore) : undefined
+              const inspected = changes ? yield* guard.scan(changes, "post-shell") : undefined
+              const scan: GuardScanResult = inspected
+                ? inspected.status === "blocked" || inspected.status === "warning"
+                  ? { ...inspected, before_snapshot: `guard:${guardBefore}` }
+                  : inspected
+                : {
+                    status: "unavailable",
+                    phase: "post-shell",
+                    findings: [],
+                    dependency_audit: { status: "unavailable" },
+                  }
+              if (guardBefore && scan.status !== "blocked" && scan.status !== "warning") {
+                yield* guard.releaseWorkspace(guardBefore)
+              }
+              if (scan.status === "warning" || scan.status === "blocked" || scan.status === "unavailable") {
+                yield* ctx.metadata({ metadata: { ...result.metadata, guard: scan } })
+              }
+              if (scan.status === "blocked") return yield* Effect.fail(new GuardBlockedError({ findings: scan.findings }))
+              return { ...result, metadata: { ...result.metadata, guard: scan } }
+            }).pipe(Effect.orDie),
         }
       })
   }),

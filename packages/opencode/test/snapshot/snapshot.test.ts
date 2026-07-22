@@ -1,8 +1,8 @@
 import { afterEach, expect } from "bun:test"
 import { $ } from "bun"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
+import { FSUtil } from "@crokcode/core/fs-util"
 import fs from "fs/promises"
 import path from "path"
 import { Effect, Fiber, Layer } from "effect"
@@ -811,6 +811,19 @@ it.instance(
 )
 
 it.instance(
+  "exact restore removes files created after the snapshot",
+  withTrackedSnapshot(({ tmp, snapshot, before }) =>
+    Effect.gen(function* () {
+      yield* write(`${tmp.path}/new.txt`, "new content")
+      expect(yield* snapshot.restoreExact(before)).toBe(true)
+      expect(yield* exists(`${tmp.path}/new.txt`)).toBe(false)
+      expect(yield* snapshot.restoreExact("invalid-snapshot")).toBe(false)
+    }),
+  ),
+  { git: true },
+)
+
+it.instance(
   "revert should not delete files that existed but were deleted in snapshot",
   Effect.gen(function* () {
     const tmp = yield* bootstrap()
@@ -899,6 +912,32 @@ it.instance(
     }),
   ),
   { git: true },
+)
+
+it.live(
+  "diffFull decodes BOM-marked UTF-16 files created by a subprocess",
+  Effect.gen(function* () {
+    const directory = yield* scopedGitTmpdir()
+    return yield* Effect.gen(function* () {
+      const snapshot = yield* Snapshot.Service
+      const before = yield* snapshot.track()
+      expect(before).toBeTruthy()
+      yield* exec(directory, [
+        process.execPath,
+        "-e",
+        `const text = '{"token":"Aa1_abcdefghijklmnopqrstuvwxyz"}'; const le = Buffer.from(text, "utf16le"); const be = Buffer.alloc(le.length + 2); be[0] = 254; be[1] = 255; for (let i = 0; i < le.length; i += 2) { be[i + 2] = le[i + 1]; be[i + 3] = le[i] }; await Promise.all([Bun.write("guard-shell.json", Buffer.concat([Buffer.from([255, 254]), le])), Bun.write("guard-be.js", be)])`,
+      ])
+      const after = yield* snapshot.track()
+      expect(after).toBeTruthy()
+      const diffs = yield* snapshot.diffFull(before!, after!)
+      expect(diffs).toHaveLength(2)
+      for (const file of ["guard-be.js", "guard-shell.json"]) {
+        const diff = diffs.find((item) => item.file === file)
+        expect(diff?.status).toBe("added")
+        expect(diff?.patch).toContain('+{"token":"Aa1_abcdefghijklmnopqrstuvwxyz"}')
+      }
+    }).pipe(provideInstance(directory))
+  }),
 )
 
 it.instance(

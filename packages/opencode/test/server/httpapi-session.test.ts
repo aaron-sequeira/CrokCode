@@ -1,17 +1,17 @@
-import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { PermissionV1 } from "@crokcode/core/v1/permission"
 import { afterEach, describe, expect } from "bun:test"
 import { NodeHttpServer, NodeServices } from "@effect/platform-node"
-import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { SessionV1 } from "@crokcode/core/v1/session"
 import { mkdir } from "node:fs/promises"
 import path from "node:path"
 import { Cause, Config, Effect, Exit, Layer } from "effect"
 import { HttpClient, HttpClientRequest, HttpClientResponse, HttpRouter, HttpServer } from "effect/unstable/http"
 import { layerWebSocketConstructorGlobal } from "effect/unstable/socket/Socket"
-import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { Flag } from "@opencode-ai/core/flag/flag"
-import { Ripgrep } from "@opencode-ai/core/ripgrep"
+import { AppNodeBuilder } from "@crokcode/core/effect/app-node-builder"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
+import { Flag } from "@crokcode/core/flag/flag"
+import { Ripgrep } from "@crokcode/core/ripgrep"
 import { registerAdapter } from "../../src/control-plane/adapters"
 import type { WorkspaceAdapter } from "../../src/control-plane/types"
 import { Workspace } from "../../src/control-plane/workspace"
@@ -23,13 +23,15 @@ import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
 import * as HttpSessionError from "../../src/server/routes/instance/httpapi/handlers/session-errors"
 import { ExperimentalPaths } from "../../src/server/routes/instance/httpapi/groups/experimental"
 import { SessionPaths } from "../../src/server/routes/instance/httpapi/groups/session"
+import { Guard } from "@/guard"
 import { Session } from "@/session/session"
+import { Snapshot } from "@/snapshot"
 import { MessageID, PartID, SessionID, type SessionID as SessionIDType } from "../../src/session/schema"
-import { Database } from "@opencode-ai/core/database/database"
-import { SessionInputTable, SessionMessageTable, SessionTable } from "@opencode-ai/core/session/sql"
-import { SessionMessage } from "@opencode-ai/core/session/message"
-import { ModelV2 } from "@opencode-ai/core/model"
-import { ProviderV2 } from "@opencode-ai/core/provider"
+import { Database } from "@crokcode/core/database/database"
+import { SessionInputTable, SessionMessageTable, SessionTable } from "@crokcode/core/session/sql"
+import { SessionMessage } from "@crokcode/core/session/message"
+import { ModelV2 } from "@crokcode/core/model"
+import { ProviderV2 } from "@crokcode/core/provider"
 import * as DateTime from "effect/DateTime"
 import { eq } from "drizzle-orm"
 import { resetDatabase } from "../fixture/db"
@@ -38,13 +40,13 @@ import { TestLLMServer } from "../lib/llm-server"
 import { testProviderConfig } from "../lib/test-provider"
 import { pollWithTimeout, testEffect } from "../lib/effect"
 
-const originalWorkspaces = Flag.OPENCODE_EXPERIMENTAL_WORKSPACES
+const originalWorkspaces = Flag.CROKCODE_EXPERIMENTAL_WORKSPACES
 const noopBootstrapLayer = Layer.succeed(
   InstanceBootstrapService.Service,
   InstanceBootstrapService.Service.of({ run: Effect.void }),
 )
 const appLayer = AppNodeBuilder.build(
-  LayerNode.group([InstanceStore.node, Project.node, Session.node, Workspace.node, Database.node, Ripgrep.node]),
+  LayerNode.group([InstanceStore.node, Project.node, Session.node, Workspace.node, Database.node, Ripgrep.node, Snapshot.node]),
   [[InstanceStore.bootstrapNode, noopBootstrapLayer]],
 )
 const servedRoutes: Layer.Layer<never, Config.ConfigError, HttpServer.HttpServer> = HttpRouter.serve(
@@ -89,6 +91,26 @@ function createTextMessage(sessionID: SessionIDType, text: string) {
     })
     return { info, part }
   })
+}
+
+function createGuardToolPart(sessionID: SessionIDType, messageID: MessageID, guard: Guard.GuardScanResult) {
+  return Session.Service.use((svc) =>
+    svc.updatePart({
+      id: PartID.ascending(),
+      sessionID,
+      messageID,
+      type: "tool",
+      callID: "guard-test",
+      tool: guard.phase === "post-shell" ? "shell" : "write",
+      state: {
+        status: "error",
+        input: {},
+        error: "Guard blocked the change",
+        metadata: { guard },
+        time: { start: Date.now(), end: Date.now() },
+      },
+    }),
+  )
 }
 
 const localAdapter = (directory: string): WorkspaceAdapter => ({
@@ -229,7 +251,7 @@ function requestJson<T>(path: string, init?: RequestInit) {
 }
 
 afterEach(async () => {
-  Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = originalWorkspaces
+  Flag.CROKCODE_EXPERIMENTAL_WORKSPACES = originalWorkspaces
   await disposeAllInstances()
   await resetDatabase()
 })
@@ -797,7 +819,7 @@ describe("session HttpApi", () => {
     () =>
       Effect.gen(function* () {
         const test = yield* TestInstance
-        Flag.OPENCODE_EXPERIMENTAL_WORKSPACES = true
+        Flag.CROKCODE_EXPERIMENTAL_WORKSPACES = true
         const project = yield* Project.use.fromDirectory(test.directory)
         const workspace = yield* createLocalWorkspace({
           projectID: project.project.id,
@@ -1039,6 +1061,241 @@ describe("session HttpApi", () => {
         )
 
         expect(response.status).toBe(400)
+      }),
+    { git: true, config: { formatter: false, lsp: false } },
+  )
+
+  it.instance(
+    "scans current workspace changes with Guard",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const session = yield* createSession({ title: "guard scan" })
+        const secret = "sk_live" + "_abcdefghijklmnopqrstuvwxyz123456"
+        yield* Effect.promise(() => Bun.write(path.join(test.directory, "secret.ts"), `export const token = "${secret}"`))
+
+        const result = yield* requestJson<Guard.GuardScanResult>(
+          pathFor(SessionPaths.guardScan, { sessionID: session.id }),
+          { method: "POST", headers: { "x-opencode-directory": test.directory } },
+        )
+
+        expect(result).toMatchObject({ status: "blocked", phase: "manual" })
+        expect(result.findings[0]).toMatchObject({ file: "secret.ts", rule_id: "secret.literal" })
+        expect(JSON.stringify(result)).not.toContain(secret)
+      }),
+    { git: true, config: { formatter: false, lsp: false } },
+  )
+
+  it.instance(
+    "reports manual Guard scans as unavailable outside git",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const session = yield* createSession({ title: "guard unavailable" })
+
+        expect(
+          yield* requestJson<Guard.GuardScanResult>(pathFor(SessionPaths.guardScan, { sessionID: session.id }), {
+            method: "POST",
+            headers: { "x-opencode-directory": test.directory },
+          }),
+        ).toEqual({
+          status: "unavailable",
+          phase: "manual",
+          findings: [],
+          dependency_audit: { status: "unavailable" },
+        })
+      }),
+    { config: { formatter: false, lsp: false } },
+  )
+
+  it.instance(
+    "requires an accept-risk reason and records Guard resolutions on the tool part",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
+        const session = yield* createSession({ title: "guard accept" })
+        const message = yield* createTextMessage(session.id, "run")
+        const part = yield* createGuardToolPart(session.id, message.info.id, {
+          status: "blocked",
+          phase: "post-shell",
+          findings: [
+            {
+              id: "secret.literal:src/auth.ts:1",
+              rule_id: "secret.literal",
+              status: "blocked",
+              severity: "critical",
+              confidence: "high",
+              source: "secret",
+              file: "src/auth.ts",
+              evidence: "const token = [REDACTED]",
+              remediation: "Use an environment variable.",
+            },
+            {
+              id: "execution.process:src/auth.ts:2",
+              rule_id: "execution.process",
+              status: "warning",
+              severity: "warning",
+              confidence: "medium",
+              source: "execution",
+              file: "src/auth.ts",
+              evidence: "exec(input)",
+              remediation: "Use a constrained API.",
+            },
+          ],
+          dependency_audit: { status: "unavailable" },
+        })
+        const route = pathFor(SessionPaths.guardResolve, {
+          sessionID: session.id,
+          messageID: message.info.id,
+          partID: part.id,
+          findingID: encodeURIComponent("secret.literal:src/auth.ts:1"),
+        })
+
+        const missingReason = yield* request(route, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ action: "accept", reason: "   " }),
+        })
+        expect(missingReason.status).toBe(400)
+
+        const result = yield* requestJson<Guard.GuardScanResult>(route, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ action: "accept", reason: "Reviewed for local development" }),
+        })
+        expect(result).toMatchObject({
+          status: "warning",
+          findings: [
+            { status: "accepted", resolution_reason: "Reviewed for local development" },
+            { status: "warning" },
+          ],
+        })
+
+        const stored = yield* Session.Service.use((svc) =>
+          svc.getPart({ sessionID: session.id, messageID: message.info.id, partID: part.id }),
+        )
+        expect(stored?.type).toBe("tool")
+        if (stored?.type !== "tool") return
+        if (stored.state.status === "pending") return
+        expect(stored.state.metadata?.guard).toEqual(result)
+
+        const riskSecret = "Aa1_abcdefghijklmnopqrstuvwxyz"
+        const warning = yield* requestJson<Guard.GuardScanResult>(
+          pathFor(SessionPaths.guardResolve, {
+            sessionID: session.id,
+            messageID: message.info.id,
+            partID: part.id,
+            findingID: encodeURIComponent("execution.process:src/auth.ts:2"),
+          }),
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ action: "accept", reason: `Expected ${riskSecret}` }),
+          },
+        )
+        expect(warning).toMatchObject({ status: "accepted", findings: [{ status: "accepted" }, { status: "accepted" }] })
+        expect(JSON.stringify(warning)).not.toContain(riskSecret)
+        expect(warning.findings[1]?.resolution_reason).toContain("[REDACTED]")
+      }),
+    { git: true, config: { formatter: false, lsp: false } },
+  )
+
+  it.instance(
+    "discards pre-write findings and reverts post-shell snapshots",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
+        const session = yield* createSession({ title: "guard actions" })
+        const message = yield* createTextMessage(session.id, "change")
+        const finding = {
+          id: "secret.literal:blocked.ts:1",
+          rule_id: "secret.literal",
+          status: "blocked" as const,
+          severity: "critical" as const,
+          confidence: "high" as const,
+          source: "secret" as const,
+          file: "blocked.ts",
+          evidence: "const token = [REDACTED]",
+          remediation: "Use an environment variable.",
+        }
+        const sibling = {
+          ...finding,
+          id: "secret.literal:sibling.ts:2",
+          file: "sibling.ts",
+        }
+        const discarded = yield* createGuardToolPart(session.id, message.info.id, {
+          status: "blocked",
+          phase: "pre-write",
+          findings: [finding, sibling],
+          dependency_audit: { status: "unavailable" },
+        })
+        const discardedResult = yield* requestJson<Guard.GuardScanResult>(
+          pathFor(SessionPaths.guardResolve, {
+            sessionID: session.id,
+            messageID: message.info.id,
+            partID: discarded.id,
+            findingID: encodeURIComponent(finding.id),
+          }),
+          { method: "POST", headers, body: JSON.stringify({ action: "discard" }) },
+        )
+        expect(discardedResult).toMatchObject({
+          status: "discarded",
+          findings: [{ status: "discarded" }, { status: "discarded" }],
+        })
+
+        const snapshot = yield* Snapshot.Service.use((svc) => svc.track())
+        const file = path.join(test.directory, "blocked.ts")
+        yield* Effect.promise(() => Bun.write(file, "unsafe"))
+        const failed = yield* createGuardToolPart(session.id, message.info.id, {
+          status: "blocked",
+          phase: "post-shell",
+          findings: [{ ...finding, status: "blocked" }, { ...sibling, status: "warning" }],
+          dependency_audit: { status: "unavailable" },
+          before_snapshot: "invalid-snapshot",
+        })
+        const failedResponse = yield* request(
+          pathFor(SessionPaths.guardResolve, {
+            sessionID: session.id,
+            messageID: message.info.id,
+            partID: failed.id,
+            findingID: encodeURIComponent(finding.id),
+          }),
+          { method: "POST", headers, body: JSON.stringify({ action: "revert" }) },
+        )
+        expect(failedResponse.status).toBe(400)
+        const failedStored = yield* Session.Service.use((svc) =>
+          svc.getPart({ sessionID: session.id, messageID: message.info.id, partID: failed.id }),
+        )
+        expect(failedStored?.type).toBe("tool")
+        if (failedStored?.type !== "tool" || failedStored.state.status === "pending") return
+        expect(failedStored.state.metadata?.guard).toMatchObject({
+          status: "blocked",
+          findings: [{ status: "blocked" }, { status: "warning" }],
+        })
+
+        const reverted = yield* createGuardToolPart(session.id, message.info.id, {
+          status: "blocked",
+          phase: "post-shell",
+          findings: [{ ...finding, status: "blocked" }, { ...sibling, status: "warning" }],
+          dependency_audit: { status: "unavailable" },
+          before_snapshot: snapshot,
+        })
+        const revertedResult = yield* requestJson<Guard.GuardScanResult>(
+          pathFor(SessionPaths.guardResolve, {
+            sessionID: session.id,
+            messageID: message.info.id,
+            partID: reverted.id,
+            findingID: encodeURIComponent(finding.id),
+          }),
+          { method: "POST", headers, body: JSON.stringify({ action: "revert" }) },
+        )
+        expect(revertedResult).toMatchObject({
+          status: "reverted",
+          findings: [{ status: "reverted" }, { status: "reverted" }],
+        })
+        expect(yield* Effect.promise(() => Bun.file(file).exists())).toBe(false)
       }),
     { git: true, config: { formatter: false, lsp: false } },
   )

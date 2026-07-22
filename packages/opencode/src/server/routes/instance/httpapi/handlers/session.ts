@@ -1,9 +1,11 @@
-import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { PermissionV1 } from "@crokcode/core/v1/permission"
 import { Agent } from "@/agent/agent"
-import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { SessionV1 } from "@crokcode/core/v1/session"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Command } from "@/command"
 import { Permission } from "@/permission"
+import { Guard } from "@/guard"
+import { Vcs } from "@/project/vcs"
 import { SessionShare } from "@/share/session"
 import { Session } from "@/session/session"
 import { SessionCompaction } from "@/session/compaction"
@@ -14,8 +16,9 @@ import { SessionRunState } from "@/session/run-state"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
 import { Todo } from "@/session/todo"
+import { Snapshot } from "@/snapshot"
 import { MessageID, PartID, SessionID } from "@/session/schema"
-import { NamedError } from "@opencode-ai/core/util/error"
+import { NamedError } from "@crokcode/core/util/error"
 import { Cause, Effect, Option, Schema, Scope } from "effect"
 import * as Stream from "effect/Stream"
 import { InstanceState } from "@/effect/instance-state"
@@ -26,6 +29,7 @@ import {
   CommandPayload,
   DiffQuery,
   ForkPayload,
+  GuardResolvePayload,
   InitPayload,
   ListQuery,
   MessagesQuery,
@@ -36,7 +40,7 @@ import {
   SummarizePayload,
   UpdatePayload,
 } from "../groups/session"
-import { PermissionNotFoundError } from "../errors"
+import { notFound, PermissionNotFoundError } from "../errors"
 import * as SessionError from "./session-errors"
 
 const tryParseJson = (text: string) =>
@@ -59,6 +63,9 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const todoSvc = yield* Todo.Service
     const summary = yield* SessionSummary.Service
     const events = yield* EventV2Bridge.Service
+    const guard = yield* Guard.Service
+    const vcs = yield* Vcs.Service
+    const snapshot = yield* Snapshot.Service
     const scope = yield* Scope.Scope
 
     const list = Effect.fn("SessionHttpApi.list")(function* (ctx: { query: typeof ListQuery.Type }) {
@@ -410,6 +417,81 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return yield* session.updatePart(payload)
     })
 
+    const guardScan = Effect.fn("SessionHttpApi.guardScan")(function* (ctx: {
+      params: { sessionID: SessionID }
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      const instance = yield* InstanceState.context
+      if (instance.project.vcs !== "git") return unavailableGuardScan()
+      const changes = yield* vcs.diff("git").pipe(
+        Effect.map((files) => files.map((file) => ({ file: file.file, before: "", after: "", diff: file.patch ?? "" }))),
+        Effect.catchCause(() => Effect.succeed(undefined)),
+      )
+      if (!changes) return unavailableGuardScan()
+      return yield* guard.scan(changes, "manual")
+    })
+
+    const guardResolve = Effect.fn("SessionHttpApi.guardResolve")(function* (ctx: {
+      params: { sessionID: SessionID; messageID: MessageID; partID: PartID; findingID: string }
+      payload: typeof GuardResolvePayload.Type
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      const part = yield* session.getPart(ctx.params)
+      if (!part) return yield* Effect.fail(notFound(`Part not found: ${ctx.params.partID}`))
+      if (part.type !== "tool" || part.state.status === "pending") return yield* new HttpApiError.BadRequest({})
+      const result = Option.getOrUndefined(Schema.decodeUnknownOption(Guard.GuardScanResult)(part.state.metadata?.guard))
+      if (!result) return yield* new HttpApiError.BadRequest({})
+      const target = result.findings.find((finding) => finding.id === ctx.params.findingID)
+      if (!target || (target.status !== "blocked" && target.status !== "warning")) {
+        return yield* new HttpApiError.BadRequest({})
+      }
+
+      const reason = ctx.payload.reason?.trim()
+      if (ctx.payload.action === "accept" && (result.phase !== "post-shell" || !reason || reason.length > 240)) {
+        return yield* new HttpApiError.BadRequest({})
+      }
+      if (ctx.payload.action === "discard" && (result.phase !== "pre-write" || target.status !== "blocked")) {
+        return yield* new HttpApiError.BadRequest({})
+      }
+      if (ctx.payload.action === "revert") {
+        if (result.phase !== "post-shell" || !result.before_snapshot) return yield* new HttpApiError.BadRequest({})
+        const restored = result.before_snapshot.startsWith("guard:")
+          ? yield* guard.restoreWorkspace(result.before_snapshot.slice("guard:".length))
+          : yield* snapshot.restoreExact(result.before_snapshot)
+        if (!restored) return yield* new HttpApiError.BadRequest({})
+      }
+
+      const status: Guard.Status =
+        ctx.payload.action === "accept" ? "accepted" : ctx.payload.action === "discard" ? "discarded" : "reverted"
+      const findings = result.findings.map((finding) => {
+        if (ctx.payload.action === "accept") {
+          return finding.id === target.id ? { ...finding, status, resolution_reason: Guard.redact(reason!) } : finding
+        }
+        if (finding.status !== "blocked" && finding.status !== "warning") return finding
+        return { ...finding, status }
+      })
+      const next: Guard.GuardScanResult = {
+        ...result,
+        status: findings.some((finding) => finding.status === "blocked")
+          ? "blocked"
+          : findings.some((finding) => finding.status === "warning")
+            ? "warning"
+            : status,
+        findings,
+      }
+      yield* session.updatePart({
+        ...part,
+        state: { ...part.state, metadata: { ...part.state.metadata, guard: next } },
+      })
+      if (ctx.payload.action === "accept" && next.status === "accepted") {
+        const token = result.before_snapshot?.startsWith("guard:")
+          ? result.before_snapshot.slice("guard:".length)
+          : undefined
+        if (token) yield* guard.releaseWorkspace(token)
+      }
+      return next
+    })
+
     return handlers
       .handle("list", list)
       .handle("status", status)
@@ -438,5 +520,16 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("deleteMessage", deleteMessage)
       .handle("deletePart", deletePart)
       .handle("updatePart", updatePart)
+      .handle("guardScan", guardScan)
+      .handle("guardResolve", guardResolve)
   }),
 )
+
+function unavailableGuardScan(): Guard.GuardScanResult {
+  return {
+    status: "unavailable",
+    phase: "manual",
+    findings: [],
+    dependency_audit: { status: "unavailable" },
+  }
+}

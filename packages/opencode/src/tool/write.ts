@@ -6,14 +6,16 @@ import { LSP } from "@/lsp/lsp"
 import { createTwoFilesPatch } from "diff"
 import DESCRIPTION from "./write.txt"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { FileSystem } from "@opencode-ai/core/filesystem"
-import { Watcher } from "@opencode-ai/core/filesystem/watcher"
+import { FileSystem } from "@crokcode/core/filesystem"
+import { Watcher } from "@crokcode/core/filesystem/watcher"
 import { Format } from "../format"
-import { FSUtil } from "@opencode-ai/core/fs-util"
+import { FSUtil } from "@crokcode/core/fs-util"
 import { InstanceState } from "@/effect/instance-state"
 import { trimDiff } from "./edit"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import * as Bom from "@/util/bom"
+import { Guard, GuardBlockedError } from "@/guard"
+import { containsPath } from "@/project/instance-context"
 
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
 
@@ -31,6 +33,7 @@ export const WriteTool = Tool.define(
     const fs = yield* FSUtil.Service
     const events = yield* EventV2Bridge.Service
     const format = yield* Format.Service
+    const guard = yield* Guard.Service
 
     return {
       description: DESCRIPTION,
@@ -41,6 +44,23 @@ export const WriteTool = Tool.define(
           const filepath = path.isAbsolute(params.filePath)
             ? params.filePath
             : path.join(instance.directory, params.filePath)
+          const preflight = yield* guard.scan(containsPath(filepath, instance) ? [] : [
+            {
+              file: filepath,
+              before: "",
+              after: params.content,
+              diff: params.content
+                .split("\n")
+                .map((line) => `+${line}`)
+                .join("\n"),
+            },
+          ])
+          if (preflight.status === "blocked") {
+            yield* ctx.metadata({
+              metadata: { filepath, diff: Guard.changeDiff(preflight, filepath), files: [filepath], guard: preflight },
+            })
+            return yield* Effect.fail(new GuardBlockedError({ findings: preflight.findings }))
+          }
           yield* assertExternalDirectoryEffect(ctx, filepath)
 
           const exists = yield* fs.existsSafe(filepath)
@@ -51,13 +71,20 @@ export const WriteTool = Tool.define(
           const contentNew = next.text
 
           const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentNew))
+          const scan = yield* guard.scan([{ file: filepath, before: contentOld, after: contentNew, diff }])
+          const safeDiff = Guard.changeDiff(scan, filepath)
+          if (scan.status === "blocked") {
+            yield* ctx.metadata({ metadata: { filepath, diff: safeDiff, files: [filepath], guard: scan } })
+            return yield* Effect.fail(new GuardBlockedError({ findings: scan.findings }))
+          }
+          if (scan.status === "warning") yield* ctx.metadata({ metadata: { filepath, diff: safeDiff, guard: scan } })
           yield* ctx.ask({
             permission: "edit",
             patterns: [path.relative(instance.worktree, filepath)],
             always: ["*"],
             metadata: {
               filepath,
-              diff,
+              diff: safeDiff,
             },
           })
 
@@ -95,6 +122,7 @@ export const WriteTool = Tool.define(
               diagnostics,
               filepath,
               exists: exists,
+              ...(scan.status === "warning" ? { guard: scan } : {}),
             },
             output,
           }

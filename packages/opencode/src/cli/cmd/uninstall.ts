@@ -2,7 +2,7 @@ import type { Argv } from "yargs"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
-import { Global } from "@opencode-ai/core/global"
+import { Global } from "@crokcode/core/global"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
@@ -24,7 +24,7 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall opencode and remove all related files",
+  describe: "uninstall crokcode and remove all related files",
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {

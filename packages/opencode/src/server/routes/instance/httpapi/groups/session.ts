@@ -1,6 +1,6 @@
-import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { PermissionV1 } from "@crokcode/core/v1/permission"
 import { Permission } from "@/permission"
-import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { SessionV1 } from "@crokcode/core/v1/session"
 
 import { Session } from "@/session/session"
 import { MessageV2 } from "@/session/message-v2"
@@ -11,6 +11,7 @@ import { SessionSummary } from "@/session/summary"
 import { Todo } from "@/session/todo"
 import { MessageID, PartID, SessionID } from "@/session/schema"
 import { Snapshot } from "@/snapshot"
+import { Guard } from "@/guard"
 import { Schema, Struct } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { Authorization } from "../middleware/authorization"
@@ -23,8 +24,8 @@ import {
 import { ApiNotFoundError, PermissionNotFoundError, SessionBusyError } from "../errors"
 import { described } from "./metadata"
 import { QueryBoolean } from "./query"
-import { ProviderV2 } from "@opencode-ai/core/provider"
-import { ModelV2 } from "@opencode-ai/core/model"
+import { ProviderV2 } from "@crokcode/core/provider"
+import { ModelV2 } from "@crokcode/core/model"
 
 const root = "/session"
 export const ListQuery = Schema.Struct({
@@ -74,6 +75,10 @@ export const RevertPayload = Schema.Struct(Struct.omit(SessionRevert.RevertInput
 export const PermissionResponsePayload = Schema.Struct({
   response: PermissionV1.Reply,
 })
+export const GuardResolvePayload = Schema.Struct({
+  action: Schema.Literals(["accept", "discard", "revert"]),
+  reason: Schema.optional(Schema.String),
+})
 
 export const SessionPaths = {
   list: root,
@@ -102,6 +107,8 @@ export const SessionPaths = {
   deleteMessage: `${root}/:sessionID/message/:messageID`,
   deletePart: `${root}/:sessionID/message/:messageID/part/:partID`,
   updatePart: `${root}/:sessionID/message/:messageID/part/:partID`,
+  guardScan: `${root}/:sessionID/guard`,
+  guardResolve: `${root}/:sessionID/message/:messageID/part/:partID/guard/:findingID`,
 } as const
 
 export const SessionApi = HttpApi.make("session")
@@ -440,6 +447,38 @@ export const SessionApi = HttpApi.make("session")
           OpenApi.annotations({
             identifier: "part.update",
             description: "Update a part in a message.",
+          }),
+        ),
+      )
+      .add(
+        HttpApiEndpoint.post("guardScan", SessionPaths.guardScan, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Guard.GuardScanResult, "Guard scan result"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.guard.scan",
+            summary: "Scan session workspace",
+            description: "Scan current workspace changes with Guard.",
+          }),
+        ),
+        HttpApiEndpoint.post("guardResolve", SessionPaths.guardResolve, {
+          params: {
+            sessionID: SessionID,
+            messageID: MessageID,
+            partID: PartID,
+            findingID: Schema.String,
+          },
+          query: WorkspaceRoutingQuery,
+          payload: GuardResolvePayload,
+          success: described(Guard.GuardScanResult, "Updated Guard scan result"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.guard.resolve",
+            summary: "Resolve Guard finding",
+            description: "Accept, discard, or revert a Guard finding attached to a tool part.",
           }),
         ),
       )

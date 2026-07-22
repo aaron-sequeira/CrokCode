@@ -4,15 +4,15 @@ import { cmd } from "./cmd"
 import { CliError, effectCmd, fail } from "../effect-cmd"
 import { UI } from "../ui"
 import * as Prompt from "../effect/prompt"
-import { ModelsDev } from "@opencode-ai/core/models-dev"
+import { ModelsDev } from "@crokcode/core/models-dev"
 
 import { map, pipe, sortBy, values } from "remeda"
 import path from "path"
 import os from "os"
 import { Config } from "@/config/config"
-import { Global } from "@opencode-ai/core/global"
+import { Global } from "@crokcode/core/global"
 import { Plugin } from "../../plugin"
-import type { Hooks } from "@opencode-ai/plugin"
+import type { Hooks } from "@crokcode/plugin"
 import { Process } from "@/util/process"
 import { errorMessage } from "@/util/error"
 import { text } from "node:stream/consumers"
@@ -304,7 +304,7 @@ export const ProvidersLoginCommand = effectCmd({
   builder: (yargs: Argv) =>
     yargs
       .positional("url", {
-        describe: "opencode auth provider",
+        describe: "crokcode auth provider",
         type: "string",
       })
       .option("provider", {

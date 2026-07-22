@@ -1,27 +1,27 @@
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { and, eq, sql } from "drizzle-orm"
-import { Database } from "@opencode-ai/core/database/database"
-import { ProjectDirectoryTable, ProjectTable } from "@opencode-ai/core/project/sql"
-import { ProjectDirectories } from "@opencode-ai/core/project/directories"
-import { SessionTable } from "@opencode-ai/core/session/sql"
-import { WorkspaceTable } from "@opencode-ai/core/control-plane/workspace.sql"
-import { Flag } from "@opencode-ai/core/flag/flag"
+import { Database } from "@crokcode/core/database/database"
+import { ProjectDirectoryTable, ProjectTable } from "@crokcode/core/project/sql"
+import { ProjectDirectories } from "@crokcode/core/project/directories"
+import { SessionTable } from "@crokcode/core/session/sql"
+import { WorkspaceTable } from "@crokcode/core/control-plane/workspace.sql"
+import { Flag } from "@crokcode/core/flag/flag"
 import { GlobalBus } from "@/bus/global"
-import { which } from "@opencode-ai/core/util/which"
+import { which } from "@crokcode/core/util/which"
 import { Command } from "@/command"
 import { InstanceState } from "@/effect/instance-state"
 import { Effect, Layer, Scope, Context, Stream, Types, Schema } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
-import { FSUtil } from "@opencode-ai/core/fs-util"
-import { AppProcess } from "@opencode-ai/core/process"
-import { ProjectV2 } from "@opencode-ai/core/project"
-import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
-import { AbsolutePath } from "@opencode-ai/core/schema"
-import { serviceUse } from "@opencode-ai/core/effect/service-use"
+import { FSUtil } from "@crokcode/core/fs-util"
+import { AppProcess } from "@crokcode/core/process"
+import { ProjectV2 } from "@crokcode/core/project"
+import { CrossSpawnSpawner } from "@crokcode/core/cross-spawn-spawner"
+import { AbsolutePath } from "@crokcode/core/schema"
+import { serviceUse } from "@crokcode/core/effect/service-use"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
-import { EventV2 } from "@opencode-ai/core/event"
-import { Project } from "@opencode-ai/schema/project"
+import { EventV2 } from "@crokcode/core/event"
+import { Project } from "@crokcode/schema/project"
 
 export const Info = Project.Info
 export type Info = Types.DeepMutable<Schema.Schema.Type<typeof Info>>
@@ -139,7 +139,7 @@ const layer = Layer.effect(
         }),
       )
 
-    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(Project.Vcs))(Flag.OPENCODE_FAKE_VCS)
+    const fakeVcs = Schema.decodeUnknownSync(Schema.optional(Project.Vcs))(Flag.CROKCODE_FAKE_VCS)
 
     const scope = yield* Scope.Scope
 
