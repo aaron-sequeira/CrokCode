@@ -27,6 +27,7 @@ import {
 import { TuiPathsProvider, TuiStartupProvider, TuiTerminalEnvironmentProvider, useTuiStartup } from "./context/runtime"
 import { DialogProvider, useDialog } from "./ui/dialog"
 import { DialogProvider as DialogProviderList } from "./component/dialog-provider"
+import { DialogUsage } from "./component/dialog-usage"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { ProjectProvider, useProject } from "./context/project"
@@ -752,6 +753,15 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         slashName: "connect",
         run: () => {
           dialog.replace(() => <DialogProviderList />)
+        },
+        category: "Provider",
+      },
+      {
+        name: "crokcode.usage",
+        title: "Usage & limits",
+        slashName: "usage",
+        run: () => {
+          dialog.replace(() => <DialogUsage />)
         },
         category: "Provider",
       },

@@ -92,6 +92,23 @@ Deno.serve(async (req) => {
   if (!account || account.reason === "invalid_key") {
     return json({ error: { message: "Invalid API key", type: "authentication_error" } }, 401)
   }
+
+  // Usage + limits for this key. Answers even when over the limit (that's when
+  // you most want to check it). Used by the `crokcode` TUI /usage command.
+  if (req.method === "GET" && path.endsWith("/usage")) {
+    return json({
+      plan: account.plan,
+      status: account.status,
+      allowed: account.allowed,
+      reason: account.reason,
+      daily_used_cents: account.daily_used,
+      daily_limit_cents: account.daily_limit,
+      weekly_used_cents: account.weekly_used,
+      weekly_limit_cents: account.weekly_limit,
+      balance_cents: account.balance_cents,
+    })
+  }
+
   if (!account.allowed) {
     const dollars = (cents: number | null) => `$${((cents ?? 0) / 100).toFixed(2)}`
     const planLabel = PLAN_LABEL[account.plan as string] ?? "your plan"
