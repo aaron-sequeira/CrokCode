@@ -9,8 +9,10 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-const PRICES: Record<string, { price: string; mode: "subscription" | "payment" }> = {
-  crokgo: { price: "price_1TvhxRFqcQDpQanaev7w9EKu", mode: "subscription" },
+// coupon: first-invoice-only discount (Stripe duration: "once"). CrokGo is
+// $10/mo with 50% off the first month = $5 first month, $10 thereafter.
+const PRICES: Record<string, { price: string; mode: "subscription" | "payment"; coupon?: string }> = {
+  crokgo: { price: "price_1Tw8nNFqcQDpQanawhK8CWrq", mode: "subscription", coupon: "sGlKPqwr" },
   crokpro: { price: "price_1TvhxiFqcQDpQanaxdA1phYl", mode: "subscription" },
   "crok-as-you-go": { price: "price_1TvhyNFqcQDpQanaCDRnJsQS", mode: "payment" },
 }
@@ -66,6 +68,7 @@ Deno.serve(async (req) => {
     customer: customerId,
     client_reference_id: user.id,
     line_items: [{ price: selected.price, quantity: 1 }],
+    ...(selected.coupon ? { discounts: [{ coupon: selected.coupon }] } : {}),
     success_url: (body.success_url as string) ?? `${origin}/billing?status=success`,
     cancel_url: (body.cancel_url as string) ?? `${origin}/billing?status=cancelled`,
   })

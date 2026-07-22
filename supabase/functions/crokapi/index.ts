@@ -27,6 +27,23 @@ const PRICING: Record<string, { input: number; output: number }> = {
 // ponytail: unlisted models bill at a flat default until the catalog is dynamic.
 const FALLBACK_PRICE = { input: 2, output: 8 }
 
+// Plan -> models. CrokGo is limited to budget models so a $5 plan can never
+// run a premium model (protects margin). CrokPro and Crok-as-you-go get all
+// models; usage is still capped by each account's credit balance/allowance.
+// Keep in sync with the plan model lists in the TUI and login command.
+const CROKGO_MODELS = new Set(["z-ai/glm-5.2", "deepseek/deepseek-v4", "moonshotai/kimi-k3"])
+
+const PLAN_LABEL: Record<string, string> = {
+  crokgo: "CrokGo",
+  crokpro: "CrokPro",
+  crok_as_you_go: "Crok-as-you-go",
+}
+
+// Which model ids a plan may call. null = all models.
+function modelsForPlan(plan: string | null | undefined): Set<string> | null {
+  return plan === "crokgo" ? CROKGO_MODELS : null
+}
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type",
@@ -68,29 +85,34 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   )
 
-  const { data, error } = await supabase.rpc("resolve_api_key", { p_key_hash: await sha256(token) })
+  const { data, error } = await supabase.rpc("check_api_key", { p_key_hash: await sha256(token) })
   if (error) return json({ error: { message: "Key lookup failed", type: "server_error" } }, 500)
 
   const account = Array.isArray(data) ? data[0] : data
-  if (!account) return json({ error: { message: "Invalid API key", type: "authentication_error" } }, 401)
+  if (!account || account.reason === "invalid_key") {
+    return json({ error: { message: "Invalid API key", type: "authentication_error" } }, 401)
+  }
   if (!account.allowed) {
-    return json(
-      {
-        error: {
-          message:
-            "No active CrokCode plan and no remaining credits. Subscribe to CrokGo or CrokPro, or top up Crok-as-you-go.",
-          type: "insufficient_quota",
-        },
-      },
-      402,
-    )
+    const dollars = (cents: number | null) => `$${((cents ?? 0) / 100).toFixed(2)}`
+    const planLabel = PLAN_LABEL[account.plan as string] ?? "your plan"
+    const message =
+      account.reason === "weekly_limit"
+        ? `Weekly usage limit reached for ${planLabel} (${dollars(account.weekly_limit)}/week). Resets Monday (UTC). Upgrade to CrokPro or use Crok-as-you-go for uncapped pay-per-use.`
+        : account.reason === "daily_limit"
+          ? `Daily usage limit reached for ${planLabel} (${dollars(account.daily_limit)}/day). Resets at midnight (UTC). Upgrade to CrokPro or use Crok-as-you-go.`
+          : "No active CrokCode plan and no remaining Crok-as-you-go credits. Subscribe to CrokGo or CrokPro, or top up Crok-as-you-go."
+    return json({ error: { message, type: "insufficient_quota" } }, 429)
   }
 
-  // Model listing is served straight from our advertised catalog.
+  const planModels = modelsForPlan(account.plan)
+
+  // Model listing reflects what the caller's plan can actually use.
   if (req.method === "GET" && path.endsWith("/models")) {
     return json({
       object: "list",
-      data: Object.keys(PRICING).map((id) => ({ id, object: "model", owned_by: "crokapi" })),
+      data: Object.keys(PRICING)
+        .filter((id) => !planModels || planModels.has(id))
+        .map((id) => ({ id, object: "model", owned_by: "crokapi" })),
     })
   }
 
@@ -107,6 +129,20 @@ Deno.serve(async (req) => {
   if (!upstreamKey) return json({ error: { message: "Gateway not configured", type: "server_error" } }, 500)
 
   const model = typeof body.model === "string" ? body.model : "unknown"
+
+  // Enforce plan scope: a key only works with its plan's models.
+  if (planModels && !planModels.has(model)) {
+    return json(
+      {
+        error: {
+          message: `Your CrokGo plan does not include ${model}. It includes ${[...planModels].join(", ")}. Upgrade to CrokPro for every model, or use Crok-as-you-go.`,
+          type: "model_not_permitted",
+        },
+      },
+      403,
+    )
+  }
+
   const streaming = body.stream === true
   // Ask OpenRouter to emit a final usage chunk so streamed calls can still be billed.
   if (streaming) body.stream_options = { include_usage: true }

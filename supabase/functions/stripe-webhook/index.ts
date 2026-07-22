@@ -31,7 +31,8 @@ const supabase = createClient(
 
 // Maps a Stripe price to one of our plans. Falls back to price metadata.
 const PLAN_BY_PRICE: Record<string, string> = {
-  price_1TvhxRFqcQDpQanaev7w9EKu: "crokgo",
+  price_1Tw8nNFqcQDpQanawhK8CWrq: "crokgo", // $10/mo (first month 50% off)
+  price_1TvhxRFqcQDpQanaev7w9EKu: "crokgo", // legacy $5/mo (existing subs)
   price_1TvhxiFqcQDpQanaxdA1phYl: "crokpro",
 }
 

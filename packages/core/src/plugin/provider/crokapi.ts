@@ -30,6 +30,7 @@ const MODELS = [
     output: 128_000,
     cost: { input: 1.25, output: 10 },
     reasoning: true,
+    image: true,
   },
   {
     id: "anthropic/claude-fable-5",
@@ -39,6 +40,7 @@ const MODELS = [
     output: 64_000,
     cost: { input: 3, output: 15 },
     reasoning: true,
+    image: true,
   },
   {
     id: "anthropic/claude-opus-4.8",
@@ -48,6 +50,7 @@ const MODELS = [
     output: 64_000,
     cost: { input: 5, output: 25 },
     reasoning: true,
+    image: true,
   },
   {
     id: "moonshotai/kimi-k3",
@@ -57,6 +60,7 @@ const MODELS = [
     output: 32_000,
     cost: { input: 0.6, output: 2.5 },
     reasoning: true,
+    image: true,
   },
   {
     id: "z-ai/glm-5.2",
@@ -75,6 +79,7 @@ const MODELS = [
     output: 64_000,
     cost: { input: 1.25, output: 10 },
     reasoning: true,
+    image: true,
   },
   {
     id: "deepseek/deepseek-v4",
@@ -93,6 +98,7 @@ const MODELS = [
     output: 32_000,
     cost: { input: 3, output: 15 },
     reasoning: true,
+    image: true,
   },
 ] as const
 
@@ -122,7 +128,7 @@ export const CrokApiPlugin = define({
           model.family = item.family
           model.api.id = item.id
           model.capabilities.tools = true
-          model.capabilities.input = ["text"]
+          model.capabilities.input = "image" in item && item.image ? ["text", "image"] : ["text"]
           model.capabilities.output = ["text"]
           model.limit = { context: item.context, output: item.output }
           model.cost = [{ input: item.cost.input, output: item.cost.output, cache: { read: 0, write: 0 } }]

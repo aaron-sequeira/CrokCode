@@ -12,16 +12,39 @@ const BASE = process.env["CROKCODE_AUTH_URL"] ?? "https://zapkpyjeetjbufuuqwye.s
 const CLI_AUTH = `${BASE}/functions/v1/cli-auth`
 const GATEWAY = `${BASE}/functions/v1/crokapi/v1`
 
-const MODELS: Record<string, { name: string }> = {
-  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol" },
-  "anthropic/claude-fable-5": { name: "Fable 5" },
-  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8" },
-  "moonshotai/kimi-k3": { name: "Kimi K3" },
+// `image: true` = the model accepts image input (declared so the TUI sends
+// attachments instead of stripping them). Based on the upstream OpenRouter
+// modalities. GLM 5.2 and DeepSeek V4 are text-only.
+const MODELS: Record<string, { name: string; image?: boolean }> = {
+  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true },
+  "anthropic/claude-fable-5": { name: "Fable 5", image: true },
+  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true },
+  "moonshotai/kimi-k3": { name: "Kimi K3", image: true },
   "z-ai/glm-5.2": { name: "GLM 5.2" },
-  "google/gemini-3.5-pro": { name: "Gemini 3.5 Pro" },
+  "google/gemini-3.5-pro": { name: "Gemini 3.5 Pro", image: true },
   "deepseek/deepseek-v4": { name: "DeepSeek V4" },
-  "x-ai/grok-5": { name: "Grok 5" },
+  "x-ai/grok-5": { name: "Grok 5", image: true },
 }
+
+// A config model entry with the modalities opencode reads to decide capabilities.
+function configModel(def: { name: string; image?: boolean }) {
+  return { name: def.name, modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] } }
+}
+
+// The provider written per plan: named after the plan, exposing only its models.
+// Must match CROKGO_MODELS in the gateway and the TUI connect dialog. Falls back
+// to "crokapi" / all models when the account has no detectable plan.
+const PLAN_NAME: Record<string, string> = {
+  crokgo: "CrokGo",
+  crokpro: "CrokPro",
+  "crok-as-you-go": "Crok-as-you-go",
+}
+const PLAN_MODEL_IDS: Record<string, string[]> = {
+  crokgo: ["z-ai/glm-5.2", "deepseek/deepseek-v4", "moonshotai/kimi-k3"],
+  crokpro: Object.keys(MODELS),
+  "crok-as-you-go": Object.keys(MODELS),
+}
+const CROK_PROVIDER_IDS = ["crokapi", "crokgo", "crokpro", "crok-as-you-go"]
 
 async function cliAuth(body: Record<string, unknown>) {
   const response = await fetch(CLI_AUTH, {
@@ -49,8 +72,8 @@ const configFile = () => {
   return path.join(dir, "crokcode", "opencode.jsonc")
 }
 
-/** Merge the crokapi provider (with the new key) into the user's global config. */
-async function writeConfig(apiKey: string) {
+/** Write a plan-named, plan-scoped provider (with the new key) into the config. */
+async function writeConfig(apiKey: string, plan: string | null) {
   const file = configFile()
   let config: Record<string, any> = {}
   const existing = await fs.readFile(file, "utf8").catch(() => "")
@@ -63,21 +86,28 @@ async function writeConfig(apiKey: string) {
       try {
         config = JSON.parse(stripped)
       } catch {
-        return { file, ok: false }
+        return { file, ok: false, providerID: "" }
       }
     }
   }
+  const providerID = plan && PLAN_NAME[plan] ? plan : "crokapi"
+  const modelIDs = PLAN_MODEL_IDS[providerID] ?? Object.keys(MODELS)
+  const models: Record<string, ReturnType<typeof configModel>> = {}
+  for (const id of modelIDs) if (MODELS[id]) models[id] = configModel(MODELS[id])
+
   config.$schema ??= "https://opencode.ai/config.json"
   config.provider ??= {}
-  config.provider.crokapi = {
+  // Keep exactly one CrokCode provider so the picker shows just the current plan.
+  for (const id of CROK_PROVIDER_IDS) delete config.provider[id]
+  config.provider[providerID] = {
     npm: "@ai-sdk/openai-compatible",
-    name: "CrokAPI",
+    name: PLAN_NAME[providerID] ?? "CrokAPI",
     options: { baseURL: GATEWAY, apiKey },
-    models: MODELS,
+    models,
   }
   await fs.mkdir(path.dirname(file), { recursive: true })
   await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n")
-  return { file, ok: true }
+  return { file, ok: true, providerID }
 }
 
 export const LoginCommand = {
@@ -111,11 +141,13 @@ export const LoginCommand = {
 
     const deadline = Date.now() + (expires_in ?? 600) * 1000
     let apiKey: string | undefined
+    let plan: string | null = null
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, Math.max(2, interval ?? 3) * 1000))
       const polled = await cliAuth({ action: "poll", device_code })
       if (polled.body.api_key) {
         apiKey = polled.body.api_key as string
+        plan = (polled.body.plan as string | null) ?? null
         break
       }
       if (polled.body.status === "pending") continue
@@ -129,7 +161,7 @@ export const LoginCommand = {
     }
     spin.stop("Approved.")
 
-    const written = await writeConfig(apiKey)
+    const written = await writeConfig(apiKey, plan)
     if (!written.ok) {
       prompts.log.warn(
         `Could not update ${written.file} automatically. Add this to it manually:\n` +
@@ -138,9 +170,11 @@ export const LoginCommand = {
       return
     }
 
+    const sample = written.providerID === "crokgo" ? "z-ai/glm-5.2" : "anthropic/claude-opus-4.8"
+    const planLabel = PLAN_NAME[written.providerID] ?? "CrokAPI"
     prompts.outro(
-      `Connected. Config saved to ${written.file}\n` +
-        `Try:  crokcode run --model crokapi/z-ai/glm-5.2 "hello"`,
+      `Connected as ${planLabel}. Config saved to ${written.file}\n` +
+        `Try:  crokcode run --model ${written.providerID}/${sample} "hello"`,
     )
   },
 }

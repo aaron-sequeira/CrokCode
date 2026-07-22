@@ -61,7 +61,8 @@ export function DialogModel(props: { providerID?: string }) {
     const providerOptions = pipe(
       sync.data.provider,
       sortBy(
-        (provider) => provider.id !== "opencode",
+        // CrokCode's own plan providers lead the list; everyone else follows A–Z.
+        (provider) => !provider.id.startsWith("crok"),
         (provider) => provider.name,
       ),
       flatMap((provider) =>

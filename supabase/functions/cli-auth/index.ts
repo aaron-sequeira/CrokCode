@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     if (!device_code) return json({ error: "invalid_request" }, 400)
     const { data } = await db
       .from("cli_auth")
-      .select("approved, api_key, expires_at")
+      .select("approved, api_key, plan, expires_at")
       .eq("device_code", device_code)
       .maybeSingle()
     if (!data) return json({ error: "invalid_code" }, 400)
@@ -74,10 +74,11 @@ Deno.serve(async (req) => {
       return json({ error: "expired_token" }, 400)
     }
     if (!data.approved || !data.api_key) return json({ status: "pending" })
-    // Hand the key over exactly once, then destroy the pairing row.
+    // Hand the key (and the user's plan) over exactly once, then destroy the row.
     const key = data.api_key as string
+    const plan = (data as { plan?: string | null }).plan ?? null
     await db.from("cli_auth").delete().eq("device_code", device_code)
-    return json({ api_key: key })
+    return json({ api_key: key, plan })
   }
 
   if (action === "approve") {
@@ -111,9 +112,27 @@ Deno.serve(async (req) => {
     })
     if (insertKey.error) return json({ error: "Could not create a key" }, 500)
 
+    // Snapshot the caller's plan so the CLI can configure only their models.
+    // Active subscription wins; otherwise a positive credit balance = PAYG.
+    const { data: sub } = await db
+      .from("subscriptions")
+      .select("plan")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing"])
+      .maybeSingle()
+    let plan: string | null = (sub?.plan as string | undefined) ?? null
+    if (!plan) {
+      const { data: bal } = await db
+        .from("credit_balances")
+        .select("balance_cents")
+        .eq("user_id", user.id)
+        .maybeSingle()
+      if (((bal?.balance_cents as number | undefined) ?? 0) > 0) plan = "crok-as-you-go"
+    }
+
     const linked = await db
       .from("cli_auth")
-      .update({ approved: true, user_id: user.id, api_key: key })
+      .update({ approved: true, user_id: user.id, api_key: key, plan })
       .eq("user_code", user_code)
       .eq("approved", false)
     if (linked.error) return json({ error: "Could not link the CLI" }, 500)

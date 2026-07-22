@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onMount, Show } from "solid-js"
+import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import { useSync } from "../context/sync"
 import { map, pipe, sortBy } from "remeda"
 import { DialogSelect } from "../ui/dialog-select"
@@ -16,14 +16,23 @@ import { useConnected } from "./use-connected"
 import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
 
+// Server providers that still belong in "Popular". OpenCode Zen (opencode) and
+// OpenCode Go (opencode-go) were removed so CrokCode's own plans lead instead.
 const PROVIDER_PRIORITY: Record<string, number> = {
-  opencode: 0,
-  "opencode-go": 1,
-  openai: 2,
-  "github-copilot": 3,
-  anthropic: 4,
-  google: 5,
+  openai: 0,
+  "github-copilot": 1,
+  anthropic: 2,
+  google: 3,
 }
+
+// CrokCode plans, shown at the top of "Popular". All three browser-pair and
+// connect the same `crokapi` gateway provider; the gateway enforces the
+// account's real plan (so a key only works with the plan the user has).
+const CROK_PLANS = [
+  { id: "crokgo", title: "CrokGo", description: "$5/mo — GLM 5.2, DeepSeek V4, Kimi K3" },
+  { id: "crokpro", title: "CrokPro", description: "$20/mo — every model (Recommended)" },
+  { id: "crok-as-you-go", title: "Crok-as-you-go", description: "Pay as you go — every model" },
+] as const
 
 const CUSTOM_PROVIDER_OPTION_VALUE = "__opencode_custom_provider__"
 const CUSTOM_PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/
@@ -43,9 +52,22 @@ type ProviderOption =
   | (ProviderOptionBase & {
       type: "custom"
     })
+  | (ProviderOptionBase & {
+      type: "plan"
+      planID: string
+    })
 
 export function providerOptions(list: { id: string; name: string }[]): ProviderOption[] {
   return [
+    // CrokCode plans lead the "Popular" section.
+    ...CROK_PLANS.map((plan) => ({
+      type: "plan" as const,
+      title: plan.title,
+      value: `__crok_plan_${plan.id}`,
+      description: plan.description,
+      category: "Popular",
+      planID: plan.id,
+    })),
     ...pipe(
       list,
       sortBy(
@@ -127,6 +149,18 @@ export function createDialogProviderOptions() {
               const providerID = await promptCustomProviderID()
               if (!providerID) return
               return dialog.replace(() => <ApiMethod providerID={providerID} title="API key" custom />)
+            },
+          }
+        }
+
+        if (provider.type === "plan") {
+          return {
+            title: provider.title,
+            value: provider.value,
+            description: provider.description,
+            category: provider.category,
+            async onSelect() {
+              return dialog.replace(() => <PlanConnect planID={provider.planID} title={provider.title} />)
             },
           }
         }
@@ -466,4 +500,155 @@ async function PromptsMethod(props: PromptsMethodProps) {
     inputs[prompt.key] = value
   }
   return inputs
+}
+
+// --- CrokCode plan connect (browser device-pairing) ---------------------------
+// Mirrors packages/opencode/src/cli/cmd/login.ts. All plans connect the same
+// `crokapi` gateway provider; the gateway enforces the account's real plan.
+// ponytail: the model list + config write are duplicated from login.ts. If this
+// diverges, extract a shared helper both the CLI and TUI import.
+const CROK_AUTH_BASE = "https://zapkpyjeetjbufuuqwye.supabase.co"
+const CROK_CLI_AUTH = `${CROK_AUTH_BASE}/functions/v1/cli-auth`
+const CROK_GATEWAY = `${CROK_AUTH_BASE}/functions/v1/crokapi/v1`
+
+// `image: true` = accepts image input (from upstream OpenRouter modalities), so
+// the TUI sends attachments instead of stripping them. GLM/DeepSeek are text-only.
+const CROK_MODELS: Record<string, { name: string; image?: boolean }> = {
+  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true },
+  "anthropic/claude-fable-5": { name: "Fable 5", image: true },
+  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true },
+  "moonshotai/kimi-k3": { name: "Kimi K3", image: true },
+  "z-ai/glm-5.2": { name: "GLM 5.2" },
+  "google/gemini-3.5-pro": { name: "Gemini 3.5 Pro", image: true },
+  "deepseek/deepseek-v4": { name: "DeepSeek V4" },
+  "x-ai/grok-5": { name: "Grok 5", image: true },
+}
+
+// Display name + model subset per plan. CrokGo is budget-only; the gateway
+// enforces this too, so these lists must match CROKGO_MODELS in the gateway.
+const CROK_PLAN_NAME: Record<string, string> = {
+  crokgo: "CrokGo",
+  crokpro: "CrokPro",
+  "crok-as-you-go": "Crok-as-you-go",
+}
+const CROK_PLAN_MODEL_IDS: Record<string, string[]> = {
+  crokgo: ["z-ai/glm-5.2", "deepseek/deepseek-v4", "moonshotai/kimi-k3"],
+  crokpro: Object.keys(CROK_MODELS),
+  "crok-as-you-go": Object.keys(CROK_MODELS),
+}
+// Builds the provider block for a plan: named after the plan, exposing only
+// that plan's models.
+function crokProviderBlock(planID: string, apiKey: string) {
+  const modelIDs = CROK_PLAN_MODEL_IDS[planID] ?? Object.keys(CROK_MODELS)
+  const models: Record<string, { name: string; modalities: { input: string[]; output: string[] } }> = {}
+  for (const id of modelIDs) {
+    const def = CROK_MODELS[id]
+    if (def) models[id] = { name: def.name, modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] } }
+  }
+  return {
+    npm: "@ai-sdk/openai-compatible",
+    name: CROK_PLAN_NAME[planID] ?? "CrokCode",
+    options: { baseURL: CROK_GATEWAY, apiKey },
+    models,
+  }
+}
+
+interface PlanConnectProps {
+  planID: string
+  title: string
+}
+function PlanConnect(props: PlanConnectProps) {
+  const { theme } = useTheme()
+  const sdk = useSDK()
+  const sync = useSync()
+  const dialog = useDialog()
+  const toast = useToast()
+  const [url, setUrl] = createSignal<string>()
+  const [code, setCode] = createSignal<string>()
+  const [status, setStatus] = createSignal("Starting…")
+  let cancelled = false
+  onCleanup(() => {
+    cancelled = true
+  })
+
+  async function cliAuth(body: Record<string, unknown>) {
+    const res = await fetch(CROK_CLI_AUTH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    return (await res.json().catch(() => ({}))) as Record<string, any>
+  }
+
+  onMount(async () => {
+    const started = await cliAuth({ action: "start" }).catch(() => ({}) as Record<string, any>)
+    if (cancelled) return
+    if (!started.device_code) {
+      toast.show({ variant: "error", message: "Could not reach the CrokCode login service." })
+      dialog.clear()
+      return
+    }
+    setUrl(started.verification_uri)
+    setCode(started.user_code)
+    setStatus("Waiting for approval in your browser…")
+
+    const interval = Math.max(2, Number(started.interval) || 3) * 1000
+    const deadline = Date.now() + (Number(started.expires_in) || 600) * 1000
+    while (!cancelled && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, interval))
+      if (cancelled) return
+      const polled = await cliAuth({ action: "poll", device_code: started.device_code }).catch(
+        () => ({}) as Record<string, any>,
+      )
+      if (polled.api_key) {
+        setStatus("Approved. Connecting…")
+        try {
+          // Persist through the API so the global config cache is invalidated and
+          // the provider loads immediately (a raw file write is not picked up
+          // mid-session). A fresh key each pairing keeps `changed` true.
+          await sdk.client.global.config.update({
+            config: { provider: { [props.planID]: crokProviderBlock(props.planID, polled.api_key as string) } } as any,
+          })
+        } catch {
+          toast.show({ variant: "error", message: "Connected, but could not save the provider." })
+          dialog.clear()
+          return
+        }
+        await sdk.client.instance.dispose()
+        await sync.bootstrap()
+        if (cancelled) return
+        dialog.replace(() => <DialogModel providerID={props.planID} />)
+        return
+      }
+      if (polled.status === "pending") continue
+      break
+    }
+    if (!cancelled) {
+      toast.show({ variant: "error", message: "Login did not complete. Try again." })
+      dialog.clear()
+    }
+  })
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text attributes={TextAttributes.BOLD} fg={theme.text}>
+          Connect {props.title}
+        </text>
+        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+          esc
+        </text>
+      </box>
+      <Show when={code()}>
+        <box gap={1}>
+          <text fg={theme.textMuted}>Open this link in your browser and approve the code:</text>
+          <Link href={url()!} fg={theme.primary} />
+          <text attributes={TextAttributes.BOLD} fg={theme.text}>
+            {code()}
+          </text>
+        </box>
+      </Show>
+      <text fg={theme.textMuted}>{status()}</text>
+    </box>
+  )
 }

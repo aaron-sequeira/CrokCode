@@ -66,9 +66,9 @@ const PLANS = [
     id: "crokgo",
     name: "CrokGo",
     price: "$5",
-    per: "/month",
-    for: "Enough to live in day to day on the efficient models.",
-    features: ["Every CrokAPI model", "Guard on every edit", "Parallel sessions", "Community support"],
+    per: " first month",
+    for: "Then $10/mo. Efficient models (GLM, DeepSeek, Kimi) with daily + weekly usage limits.",
+    features: ["GLM 5.2 · DeepSeek V4 · Kimi K3", "Guard on every edit", "$0.50/day · $1.50/week", "Community support"],
   },
   {
     id: "crokpro",
@@ -77,8 +77,8 @@ const PLANS = [
     per: "/month",
     for: "For people who reach for the frontier models all day.",
     features: [
-      "Everything in CrokGo",
-      "Much higher monthly limits",
+      "Every CrokAPI model (Opus, GPT, Grok…)",
+      "Higher daily & weekly limits",
       "Priority routing on frontier models",
       "Usage analytics",
     ],
@@ -89,8 +89,8 @@ const PLANS = [
     name: "Crok-as-you-go",
     price: "Top up",
     per: " any amount",
-    for: "No subscription. Credits are drawn down as you use them.",
-    features: ["Same models and Guard", "Pay only for tokens used", "Credits never expire", "Top up from $5"],
+    for: "No caps. Pay per token — the tier for heavy, all-day agentic work.",
+    features: ["Every model, no daily/weekly caps", "Pay only for tokens used", "Credits never expire", "Top up from $5"],
   },
 ]
 
@@ -120,8 +120,8 @@ const FAQ = [
     "macOS, Linux, Windows and WSL, on x64 and arm64.",
   ],
   [
-    "How does billing work on pay-as-you-go?",
-    "Top up any amount from $5. Each request is metered on real token counts and drawn from your balance. Subscriptions are not metered against credits.",
+    "How do the plan limits and pay-as-you-go work?",
+    "CrokGo and CrokPro give you a daily and weekly usage budget — spend up to that and it resets each day and each Monday. Great for the efficient models and everyday work. If you need uncapped, all-day heavy use on the frontier models, Crok-as-you-go bills only for the tokens you use, drawn from a balance you top up from $5.",
   ],
   [
     "Is it really open source?",

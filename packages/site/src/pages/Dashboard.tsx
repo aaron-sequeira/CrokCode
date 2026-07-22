@@ -96,13 +96,25 @@ export function Dashboard({ user }: { user: User }) {
               {account?.status ? `Status: ${account.status}` : "Subscribe or top up to start using CrokAPI."}
             </p>
           </div>
-          <div className="panel metric">
-            <span>Credit balance</span>
-            <b>{money(account?.balanceCents ?? 0)}</b>
-            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
-              Drawn down by pay-as-you-go usage.
-            </p>
-          </div>
+          {account?.dailyLimitCents != null ? (
+            <div className="panel metric">
+              <span>Usage limits</span>
+              <b>
+                {money(account.dailyUsedCents ?? 0)} <span style={{ color: "var(--muted)", fontWeight: 400 }}>/ {money(account.dailyLimitCents)} today</span>
+              </b>
+              <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
+                {money(account.weeklyUsedCents ?? 0)} / {money(account.weeklyLimitCents ?? 0)} this week. Resets daily / Mon (UTC).
+              </p>
+            </div>
+          ) : (
+            <div className="panel metric">
+              <span>Credit balance</span>
+              <b>{money(account?.balanceCents ?? 0)}</b>
+              <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
+                Pay-as-you-go — drawn down by usage.
+              </p>
+            </div>
+          )}
           <div className="panel metric">
             <span>Recent spend</span>
             <b>{money(Math.round(account?.spentCents ?? 0))}</b>
@@ -121,7 +133,7 @@ export function Dashboard({ user }: { user: User }) {
               {busy === "crokpro" ? "Opening…" : "CrokPro — $20/mo"}
             </button>
             <button className="btn btn-ghost" disabled={!!busy} onClick={() => subscribe("crokgo")}>
-              {busy === "crokgo" ? "Opening…" : "CrokGo — $5/mo"}
+              {busy === "crokgo" ? "Opening…" : "CrokGo — $5 first month, then $10/mo"}
             </button>
             <button className="btn btn-ghost" disabled={!!busy} onClick={() => subscribe("crok-as-you-go")}>
               {busy === "crok-as-you-go" ? "Opening…" : "Top up credits"}

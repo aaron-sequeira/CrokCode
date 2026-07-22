@@ -55,20 +55,19 @@ export type Account = {
   plan: string | null
   status: string | null
   balanceCents: number
+  // Subscribers are metered by daily + weekly caps (null for pay-as-you-go).
+  dailyUsedCents: number | null
+  dailyLimitCents: number | null
+  weeklyUsedCents: number | null
+  weeklyLimitCents: number | null
   usage: { model: string; input_tokens: number; output_tokens: number; cost_cents: string; created_at: string }[]
   spentCents: number
 }
 
-/** Read the signed-in user's plan, balance and recent usage. RLS scopes every row. */
-export async function loadAccount(userId: string): Promise<Account> {
-  const [subscription, balance, usage] = await Promise.all([
-    supabase
-      .from("subscriptions")
-      .select("plan,status")
-      .eq("user_id", userId)
-      .in("status", ["active", "trialing", "past_due"])
-      .maybeSingle(),
-    supabase.from("credit_balances").select("balance_cents").eq("user_id", userId).maybeSingle(),
+/** Read the signed-in user's plan, usage status and recent usage. RLS scopes every row. */
+export async function loadAccount(_userId: string): Promise<Account> {
+  const [status, usage] = await Promise.all([
+    supabase.rpc("my_usage_status"),
     supabase
       .from("usage_events")
       .select("model,input_tokens,output_tokens,cost_cents,created_at")
@@ -76,11 +75,16 @@ export async function loadAccount(userId: string): Promise<Account> {
       .limit(25),
   ])
 
+  const s = (Array.isArray(status.data) ? status.data[0] : status.data) ?? {}
   const rows = usage.data ?? []
   return {
-    plan: subscription.data?.plan ?? null,
-    status: subscription.data?.status ?? null,
-    balanceCents: balance.data?.balance_cents ?? 0,
+    plan: s.plan ?? null,
+    status: s.status ?? null,
+    balanceCents: s.balance_cents ?? 0,
+    dailyUsedCents: s.daily_limit != null ? (s.daily_used ?? 0) : null,
+    dailyLimitCents: s.daily_limit ?? null,
+    weeklyUsedCents: s.weekly_limit != null ? (s.weekly_used ?? 0) : null,
+    weeklyLimitCents: s.weekly_limit ?? null,
     usage: rows,
     spentCents: rows.reduce((total, row) => total + Number(row.cost_cents ?? 0), 0),
   }
