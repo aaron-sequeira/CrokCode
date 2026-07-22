@@ -451,29 +451,38 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   )
 
   // Update terminal window title based on current route and session
+  const TITLE_BASE = "🐊 crokcode"
+  const TITLE_FRAMES = ["░", "▒", "▓", "█", "▓", "▒"]
   createEffect(() => {
     if (!terminalTitleEnabled() || Flag.CROKCODE_DISABLE_TERMINAL_TITLE) return
 
-    if (route.data.type === "home") {
-      renderer.setTerminalTitle("OpenCode")
-      return
-    }
-
-    if (route.data.type === "session") {
-      const session = sync.session.get(route.data.sessionID)
-      if (!session || isDefaultTitle(session.title)) {
-        renderer.setTerminalTitle("OpenCode")
-        return
+    const title = (() => {
+      if (route.data.type === "session") {
+        const session = sync.session.get(route.data.sessionID)
+        if (session && !isDefaultTitle(session.title)) {
+          const name = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
+          return `${TITLE_BASE} | ${name}`
+        }
+        return TITLE_BASE
       }
+      if (route.data.type === "plugin") return `${TITLE_BASE} | ${route.data.id}`
+      return TITLE_BASE
+    })()
 
-      const title = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
-      renderer.setTerminalTitle(`OC | ${title}`)
+    const working = Object.values(sync.data.session_status).some(
+      (status) => status.type === "busy" || status.type === "retry",
+    )
+
+    if (!working) {
+      renderer.setTerminalTitle(title)
       return
     }
 
-    if (route.data.type === "plugin") {
-      renderer.setTerminalTitle(`OC | ${route.data.id}`)
-    }
+    let frame = 0
+    const tick = () => renderer.setTerminalTitle(`${title} ${TITLE_FRAMES[frame++ % TITLE_FRAMES.length]}`)
+    tick()
+    const timer = setInterval(tick, 150)
+    onCleanup(() => clearInterval(timer))
   })
 
   const args = useArgs()
