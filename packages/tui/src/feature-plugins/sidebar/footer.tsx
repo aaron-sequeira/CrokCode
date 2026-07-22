@@ -1,10 +1,13 @@
 import type { TuiPlugin, TuiPluginApi } from "@crokcode/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo, Show } from "solid-js"
+import { RGBA } from "@opentui/core"
 import { abbreviateHome } from "../../runtime"
 import { useTuiPaths } from "../../context/runtime"
 
 const id = "internal:sidebar-footer"
+
+const GREEN = RGBA.fromHex("#a7d129")
 
 function View(props: { api: TuiPluginApi; sessionID: string }) {
   const paths = useTuiPaths()
@@ -53,7 +56,7 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
                 ✕
               </text>
             </box>
-            <text fg={theme().textMuted}>OpenCode includes free models so you can start immediately.</text>
+            <text fg={theme().textMuted}>crokcode includes free models so you can start immediately.</text>
             <text fg={theme().textMuted}>
               Connect from 75+ providers to use other models, including Claude, GPT, Gemini etc
             </text>
@@ -69,9 +72,12 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
         <span style={{ fg: theme().text }}>{path().name}</span>
       </text>
       <text fg={theme().textMuted}>
-        <span style={{ fg: theme().success }}>•</span> <b>Open</b>
+        <span style={{ fg: theme().success }}>•</span>{" "}
+        <span style={{ fg: GREEN }}>
+          <b>crok</b>
+        </span>
         <span style={{ fg: theme().text }}>
-          <b>Code</b>
+          <b>code</b>
         </span>{" "}
         <span>{props.api.app.version}</span>
       </text>
