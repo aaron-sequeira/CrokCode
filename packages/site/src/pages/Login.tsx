@@ -1,15 +1,28 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import { supabase } from "../lib/api"
 import { Croc } from "../components/Croc"
 
 export function Login() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState("")
+
+  // Where to go after signing in. `crokcode login` sends users here as
+  // /login?next=/link?code=XXXX so they land back on the pairing page.
+  const next = new URLSearchParams(window.location.search).get("next")
+
+  // If already signed in, don't show the form: continue to the pairing page
+  // (when linking the CLI) or the console.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate(next || "/app", { replace: true })
+    })
+  }, [navigate, next])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -24,19 +37,21 @@ export function Login() {
 
     setBusy(false)
     if (result.error) return setError(result.error.message)
-    // A project with email confirmation on returns a user but no session.
-    if (mode === "signup" && !result.data.session) {
-      setSent("Check your inbox to confirm the address, then sign in.")
+    if (result.data.session) {
+      navigate(next || "/app")
+      return
     }
+    // Email confirmation on: user exists but no session yet.
+    if (mode === "signup") setSent("Check your inbox to confirm the address, then sign in.")
   }
 
-  // Google OAuth. Supabase redirects back with the session in the URL; the
-  // client picks it up automatically and App.tsx routes to /app.
+  // Google OAuth. Supabase redirects back with the session in the URL hash;
+  // the client picks it up automatically.
   const google = async () => {
     setError("")
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/app` },
+      options: { redirectTo: `${location.origin}${next || "/app"}` },
     })
     if (error) setError(error.message)
   }
@@ -53,9 +68,11 @@ export function Login() {
             {mode === "signup" ? "Create your account" : "Sign in"}
           </h2>
           <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 22 }}>
-            {mode === "signup"
-              ? "You will get an API key and a credit balance straight away."
-              : "Manage your plan, API keys and usage."}
+            {next
+              ? "Sign in to connect the CrokCode CLI."
+              : mode === "signup"
+                ? "You will get an API key and a credit balance straight away."
+                : "Manage your plan, API keys and usage."}
           </p>
 
           <button type="button" className="btn btn-google" onClick={google}>

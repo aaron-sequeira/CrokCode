@@ -5,6 +5,7 @@ import { supabase } from "./lib/api"
 import { Landing } from "./pages/Landing"
 import { Login } from "./pages/Login"
 import { Dashboard } from "./pages/Dashboard"
+import { Link } from "./pages/Link"
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -25,7 +26,8 @@ export function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/login" element={session ? <Navigate to="/app" replace /> : <Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/link" element={<Link />} />
         <Route path="/app" element={session ? <Dashboard user={session.user} /> : <Login />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
