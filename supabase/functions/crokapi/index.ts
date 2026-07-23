@@ -208,6 +208,24 @@ Deno.serve(async (req) => {
       p_output_tokens: output,
       p_cost_cents: costCents(model, input, output),
     })
+    // PAYG only (subscribers aren't credit-metered): kick the auto top-up
+    // check. claim_auto_topup dedupes, so firing per-request is safe.
+    if (account.daily_limit == null) {
+      const topup = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/auto-topup`, {
+        method: "POST",
+        headers: {
+          "x-internal-key": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ user_id: account.user_id }),
+      }).catch(() => {})
+      try {
+        // Keep the worker alive for the background call without blocking the response.
+        ;(globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(topup)
+      } catch {
+        void topup
+      }
+    }
   }
 
   if (!upstream.ok || !streaming) {

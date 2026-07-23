@@ -9,6 +9,29 @@ const PLAN_LABEL: Record<string, string> = {
   crok_as_you_go: "Crok-as-you-go",
 }
 
+function pct(used: number, limit: number) {
+  if (!limit) return 0
+  return Math.min(100, Math.round((used / limit) * 100))
+}
+
+// Percentage progress bar for a usage window (green -> amber -> red).
+function Meter({ label, used, limit, hint }: { label: string; used: number; limit: number; hint: string }) {
+  const p = pct(used, limit)
+  const color = p >= 90 ? "#e5484d" : p >= 75 ? "#e0a63a" : "var(--croc)"
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+        <span style={{ color: "var(--muted)" }}>{label}</span>
+        <b style={{ color }}>{p}%</b>
+      </div>
+      <div className="meter">
+        <i style={{ width: `${p}%`, background: color }} />
+      </div>
+      <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>{hint}</p>
+    </div>
+  )
+}
+
 type TabId = "overview" | "crokgo" | "crokpro" | "payg" | "keys" | "usage"
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -60,6 +83,22 @@ export function Dashboard({ user }: { user: User }) {
   const [amount, setAmount] = useState("10")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState("")
+  // Auto billing settings (auto_topup table; RLS scopes to the signed-in user).
+  const [topup, setTopup] = useState<{ enabled: boolean; threshold: string; amount: string } | null>(null)
+
+  useEffect(() => {
+    void supabase
+      .from("auto_topup")
+      .select("enabled,threshold_cents,amount_cents")
+      .maybeSingle()
+      .then(({ data }) => {
+        setTopup({
+          enabled: data?.enabled ?? false,
+          threshold: String((data?.threshold_cents ?? 500) / 100),
+          amount: String((data?.amount_cents ?? 1000) / 100),
+        })
+      })
+  }, [user.id])
 
   const refresh = useCallback(async () => {
     try {
@@ -126,6 +165,26 @@ export function Dashboard({ user }: { user: User }) {
       if (result.url) location.href = result.url
     })
 
+  const saveTopup = (enabled: boolean) =>
+    guard("topup", async () => {
+      if (!topup) return
+      const threshold = Math.round(parseFloat(topup.threshold) * 100)
+      const buy = Math.round(parseFloat(topup.amount) * 100)
+      if (enabled && (!Number.isFinite(threshold) || threshold < 100 || !Number.isFinite(buy) || buy < 500 || buy > 50000)) {
+        setError("Threshold must be at least $1 and the top-up amount $5–$500.")
+        return
+      }
+      const { error: saveError } = await supabase.from("auto_topup").upsert({
+        user_id: user.id,
+        enabled,
+        threshold_cents: Number.isFinite(threshold) ? threshold : 500,
+        amount_cents: Number.isFinite(buy) ? buy : 1000,
+        updated_at: new Date().toISOString(),
+      })
+      if (saveError) throw new Error(saveError.message)
+      setTopup({ ...topup, enabled })
+    })
+
   const planName = account?.plan ? (PLAN_LABEL[account.plan] ?? account.plan) : null
   const isPayg = account?.dailyLimitCents == null
 
@@ -177,15 +236,20 @@ export function Dashboard({ user }: { user: User }) {
               {!isPayg ? (
                 <div className="panel metric">
                   <span>Usage limits</span>
-                  <b>
-                    {money(account?.dailyUsedCents ?? 0)}{" "}
-                    <span style={{ color: "var(--muted)", fontWeight: 400 }}>
-                      / {money(account?.dailyLimitCents ?? 0)} today
-                    </span>
-                  </b>
-                  <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
-                    {money(account?.weeklyUsedCents ?? 0)} / {money(account?.weeklyLimitCents ?? 0)} this week.
-                  </p>
+                  <div style={{ marginTop: 12 }}>
+                    <Meter
+                      label="Today"
+                      used={account?.dailyUsedCents ?? 0}
+                      limit={account?.dailyLimitCents ?? 0}
+                      hint="Resets daily (UTC)"
+                    />
+                    <Meter
+                      label="This week"
+                      used={account?.weeklyUsedCents ?? 0}
+                      limit={account?.weeklyLimitCents ?? 0}
+                      hint="Resets Monday (UTC)"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="panel metric">
@@ -252,6 +316,14 @@ export function Dashboard({ user }: { user: User }) {
         {/* ---- Crok-as-you-go ---- */}
         {tab === "payg" && (
           <>
+            <div className="panel metric" style={{ marginBottom: 16 }}>
+              <span>Usage credits</span>
+              <b>{money(account?.balanceCents ?? 0)}</b>
+              <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
+                Buying $10 adds $10 of usage credits. Drawn down per token as you use the models. Credits never expire.
+              </p>
+            </div>
+
             <div className="panel" style={{ marginBottom: 16 }}>
               <h3 style={{ marginBottom: 6 }}>Buy credits</h3>
               <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 18 }}>
@@ -274,6 +346,71 @@ export function Dashboard({ user }: { user: User }) {
                   {busy === "payg" ? "Opening…" : `Buy ${money(Math.round((parseFloat(amount) || 0) * 100))} credits`}
                 </button>
               </div>
+            </div>
+
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6, flexWrap: "wrap" }}>
+                <h3>Auto billing</h3>
+                {topup && (
+                  <button
+                    className={topup.enabled ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm"}
+                    style={{ marginLeft: "auto" }}
+                    disabled={!!busy}
+                    onClick={() => saveTopup(!topup.enabled)}
+                  >
+                    {busy === "topup" ? "Saving…" : topup.enabled ? "Disable auto billing" : "Enable auto billing"}
+                  </button>
+                )}
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>
+                {topup?.enabled ? (
+                  <>
+                    <b style={{ color: "var(--croc)" }}>On.</b> When your credits drop below the threshold, we
+                    automatically buy the top-up amount using the card saved from your last purchase. Disable any time.
+                  </>
+                ) : (
+                  "Off. When enabled, credits are automatically bought with your saved card whenever the balance drops below your threshold. You can disable it any time."
+                )}
+              </p>
+              {topup && (
+                <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted)" }}>
+                    When below
+                    <span className="amount-field">
+                      <span>$</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={topup.threshold}
+                        onChange={(event) => setTopup({ ...topup, threshold: event.target.value })}
+                      />
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted)" }}>
+                    buy
+                    <span className="amount-field">
+                      <span>$</span>
+                      <input
+                        type="number"
+                        min={5}
+                        max={500}
+                        step={1}
+                        value={topup.amount}
+                        onChange={(event) => setTopup({ ...topup, amount: event.target.value })}
+                      />
+                    </span>
+                  </label>
+                  {topup.enabled && (
+                    <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => saveTopup(true)}>
+                      Save
+                    </button>
+                  )}
+                </div>
+              )}
+              <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 12 }}>
+                Requires one previous top-up so a card is on file. At most one automatic charge every 10 minutes.
+              </p>
             </div>
 
             <div className="panel">

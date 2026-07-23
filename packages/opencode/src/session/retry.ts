@@ -70,6 +70,14 @@ export function retryable(error: Err, provider: string) {
   if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
   if (SessionV1.APIError.isInstance(error)) {
     const status = error.data.statusCode
+    // CrokAPI hard limits (daily/weekly budget, plan model scope) never resolve
+    // by retrying: fail fast so the limit lands as an error message in the chat
+    // instead of a retry banner pinned under the input bar.
+    if (
+      error.data.responseBody?.includes("insufficient_quota") ||
+      error.data.responseBody?.includes("model_not_permitted")
+    )
+      return undefined
     // 5xx errors are transient server failures and should always be retried,
     // even when the provider SDK doesn't explicitly mark them as retryable.
     if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined

@@ -15,37 +15,39 @@ const GATEWAY = `${BASE}/functions/v1/crokapi/v1`
 // `image: true` = the model accepts image input (declared so the TUI sends
 // attachments instead of stripping them). Based on the upstream OpenRouter
 // modalities. GLM 5.2 and DeepSeek V4 are text-only.
-const MODELS: Record<string, { name: string; image?: boolean }> = {
-  "deepseek/deepseek-v4-flash": { name: "DeepSeek V4 Flash" },
-  "z-ai/glm-4.7-flash": { name: "GLM 4.7 Flash" },
-  "xiaomi/mimo-v2.5": { name: "MiMo V2.5", image: true },
-  "qwen/qwen3-coder-flash": { name: "Qwen3 Coder Flash" },
-  "deepseek/deepseek-v4-pro": { name: "DeepSeek V4 Pro" },
-  "xiaomi/mimo-v2.5-pro": { name: "MiMo V2.5 Pro" },
-  "minimax/minimax-m3": { name: "MiniMax M3", image: true },
-  "qwen/qwen3.7-plus": { name: "Qwen3.7 Plus", image: true },
-  "z-ai/glm-5.2": { name: "GLM 5.2" },
-  "moonshotai/kimi-k2.7-code": { name: "Kimi K2.7 Code", image: true },
-  "anthropic/claude-haiku-4.5": { name: "Claude Haiku 4.5", image: true },
-  "x-ai/grok-4.5": { name: "Grok 4.5", image: true },
-  "google/gemini-3.6-flash": { name: "Gemini 3.6 Flash", image: true },
-  "anthropic/claude-sonnet-5": { name: "Claude Sonnet 5", image: true },
-  "google/gemini-3.1-pro-preview": { name: "Gemini 3.1 Pro", image: true },
-  "openai/gpt-5.4": { name: "GPT-5.4", image: true },
-  "openai/gpt-5.6-terra": { name: "GPT-5.6 Terra", image: true },
-  "moonshotai/kimi-k3": { name: "Kimi K3", image: true },
-  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true },
-  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true },
-  "anthropic/claude-fable-5": { name: "Fable 5", image: true },
+const MODELS: Record<string, { name: string; image?: boolean; cost: { input: number; output: number } }> = {
+  "deepseek/deepseek-v4-flash": { name: "DeepSeek V4 Flash", cost: { input: 0.14, output: 0.28 } },
+  "z-ai/glm-4.7-flash": { name: "GLM 4.7 Flash", cost: { input: 0.08, output: 0.56 } },
+  "xiaomi/mimo-v2.5": { name: "MiMo V2.5", image: true, cost: { input: 0.2, output: 0.39 } },
+  "qwen/qwen3-coder-flash": { name: "Qwen3 Coder Flash", cost: { input: 0.28, output: 1.36 } },
+  "deepseek/deepseek-v4-pro": { name: "DeepSeek V4 Pro", cost: { input: 0.6, output: 1.22 } },
+  "xiaomi/mimo-v2.5-pro": { name: "MiMo V2.5 Pro", cost: { input: 0.6, output: 1.22 } },
+  "minimax/minimax-m3": { name: "MiniMax M3", image: true, cost: { input: 0.42, output: 1.68 } },
+  "qwen/qwen3.7-plus": { name: "Qwen3.7 Plus", image: true, cost: { input: 0.45, output: 1.79 } },
+  "z-ai/glm-5.2": { name: "GLM 5.2", cost: { input: 1.11, output: 3.49 } },
+  "moonshotai/kimi-k2.7-code": { name: "Kimi K2.7 Code", image: true, cost: { input: 1.15, output: 5.25 } },
+  "anthropic/claude-haiku-4.5": { name: "Claude Haiku 4.5", image: true, cost: { input: 1.4, output: 7 } },
+  "x-ai/grok-4.5": { name: "Grok 4.5", image: true, cost: { input: 2.8, output: 8.4 } },
+  "google/gemini-3.6-flash": { name: "Gemini 3.6 Flash", image: true, cost: { input: 2.1, output: 10.5 } },
+  "anthropic/claude-sonnet-5": { name: "Claude Sonnet 5", image: true, cost: { input: 2.8, output: 14 } },
+  "google/gemini-3.1-pro-preview": { name: "Gemini 3.1 Pro", image: true, cost: { input: 2.8, output: 16.8 } },
+  "openai/gpt-5.4": { name: "GPT-5.4", image: true, cost: { input: 3.5, output: 21 } },
+  "openai/gpt-5.6-terra": { name: "GPT-5.6 Terra", image: true, cost: { input: 3.5, output: 21 } },
+  "moonshotai/kimi-k3": { name: "Kimi K3", image: true, cost: { input: 4.2, output: 21 } },
+  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true, cost: { input: 7, output: 35 } },
+  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true, cost: { input: 7, output: 42 } },
+  "anthropic/claude-fable-5": { name: "Fable 5", image: true, cost: { input: 14, output: 70 } },
 }
 
 // A config model entry with the capabilities opencode reads. `reasoning: true`
 // enables the effort/variant switcher (/effort, /variants) so users can dial
 // reasoning down to spend fewer tokens on small tasks.
-function configModel(def: { name: string; image?: boolean }) {
+function configModel(def: { name: string; image?: boolean; cost: { input: number; output: number } }) {
   return {
     name: def.name,
     reasoning: true,
+    // Sell-side $/1M so the TUI status line shows real session cost.
+    cost: { input: def.cost.input, output: def.cost.output },
     modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] },
   }
 }

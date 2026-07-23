@@ -1005,6 +1005,20 @@ p {
   border-bottom-color: var(--croc);
 }
 
+/* Usage percentage meter */
+.meter {
+  height: 8px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
 /* Credit amount input */
 .amount-field {
   display: flex;

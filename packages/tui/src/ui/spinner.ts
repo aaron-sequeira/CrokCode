@@ -366,3 +366,20 @@ export function createColors(options: KnightRiderOptions = {}): ColorGenerator {
 
   return createKnightRiderTrail(trailOptions)
 }
+
+// CrokCode: a tiny pixel croc pacing across the status area — the TUI's own
+// working animation, replacing the generic knight-rider dots. Snout faces
+// left like the Pixel Croc mascot; it walks right-to-left and wraps.
+export function createCrocFrames(width = 12): string[] {
+  // Alternating final char shifts the legs for a simple walk cycle.
+  const stances = ["▜██▙", "▜██▟"]
+  const span = stances[0].length
+  const frames: string[] = []
+  for (let pos = width - span; pos >= 0; pos--) {
+    const stance = stances[(width - span - pos) % 2]
+    const frame = " ".repeat(pos) + stance + " ".repeat(width - span - pos)
+    // Triplicate so the walk reads at the spinner's 40ms tick (~120ms/step).
+    frames.push(frame, frame, frame)
+  }
+  return frames
+}

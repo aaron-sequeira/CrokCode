@@ -111,6 +111,8 @@ Deno.serve(async (req) => {
     customer: customerId,
     client_reference_id: user.id,
     line_items: [lineItem],
+    // Save the card on top-ups so Crok-as-you-go auto top-up can charge off-session.
+    ...(selected.mode === "payment" ? { payment_intent_data: { setup_future_usage: "off_session" } } : {}),
     ...(selected.coupon ? { discounts: [{ coupon: selected.coupon }] } : {}),
     success_url: (body.success_url as string) ?? `${origin}/billing?status=success`,
     cancel_url: (body.cancel_url as string) ?? `${origin}/billing?status=cancelled`,
