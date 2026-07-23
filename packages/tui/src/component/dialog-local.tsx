@@ -105,12 +105,14 @@ export function DialogLocal() {
         value: model.id,
         description: `${gb(model.sizeGb)} · ${model.note}`,
         disabled: !has && !runnable,
+        // DialogSelect wraps option.footer in a <text>, so use <span> (a valid
+        // text child) — a nested <text> would crash the renderer.
         footer: has ? (
-          <text fg={theme.success}>✓ downloaded</text>
+          <span style={{ fg: theme.success }}>✓ downloaded</span>
         ) : runnable ? (
-          <text fg={theme.textMuted}>runs on your machine</text>
+          <span style={{ fg: theme.textMuted }}>runs on your machine</span>
         ) : (
-          <text fg={theme.error}>needs {model.minRamGb} GB RAM</text>
+          <span style={{ fg: theme.error }}>needs {model.minRamGb} GB RAM</span>
         ),
         async onSelect() {
           if (has) return connect(model)
