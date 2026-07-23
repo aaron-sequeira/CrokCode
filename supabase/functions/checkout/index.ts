@@ -9,12 +9,20 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-// coupon: first-invoice-only discount (Stripe duration: "once"). CrokGo is
+// Price ids + coupon come from env so switching TEST -> LIVE is just setting
+// secrets (STRIPE_PRICE_CROKGO / _CROKPRO / _PAYG, STRIPE_COUPON_CROKGO), no
+// redeploy. Defaults are the current test-mode objects.
+// coupon: first-invoice-only discount (Stripe duration "once"). CrokGo is
 // $10/mo with 50% off the first month = $5 first month, $10 thereafter.
+const env = (k: string, fallback: string) => Deno.env.get(k) ?? fallback
 const PRICES: Record<string, { price: string; mode: "subscription" | "payment"; coupon?: string }> = {
-  crokgo: { price: "price_1Tw8nNFqcQDpQanawhK8CWrq", mode: "subscription", coupon: "sGlKPqwr" },
-  crokpro: { price: "price_1TvhxiFqcQDpQanaxdA1phYl", mode: "subscription" },
-  "crok-as-you-go": { price: "price_1TvhyNFqcQDpQanaCDRnJsQS", mode: "payment" },
+  crokgo: {
+    price: env("STRIPE_PRICE_CROKGO", "price_1Tw8nNFqcQDpQanawhK8CWrq"),
+    mode: "subscription",
+    coupon: env("STRIPE_COUPON_CROKGO", "sGlKPqwr"),
+  },
+  crokpro: { price: env("STRIPE_PRICE_CROKPRO", "price_1TvhxiFqcQDpQanaxdA1phYl"), mode: "subscription" },
+  "crok-as-you-go": { price: env("STRIPE_PRICE_PAYG", "price_1TvhyNFqcQDpQanaCDRnJsQS"), mode: "payment" },
 }
 
 const CORS = {
