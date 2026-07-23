@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://crokcode.tech">
-    <img src="packages/site/public/favicon.svg" alt="CrokCode" width="176" height="110">
+    <img src="packages/site/public/croc.svg" alt="CrokCode" width="288" height="48">
   </a>
 </p>
 <h1 align="center">CrokCode</h1>
