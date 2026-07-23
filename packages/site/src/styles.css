@@ -977,3 +977,55 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+/* Console tabs */
+.tabs {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px 14px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.tab:hover {
+  color: var(--bone);
+}
+.tab-active {
+  color: var(--croc);
+  border-bottom-color: var(--croc);
+}
+
+/* Credit amount input */
+.amount-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 12px;
+}
+.amount-field span {
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.amount-field input {
+  background: none;
+  border: none;
+  color: var(--bone);
+  font-family: var(--mono);
+  font-size: 15px;
+  width: 96px;
+  padding: 10px 0;
+  outline: none;
+}

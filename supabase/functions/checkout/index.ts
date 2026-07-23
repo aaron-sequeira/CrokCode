@@ -62,12 +62,29 @@ Deno.serve(async (req) => {
     await admin.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id)
   }
 
+  // Crok-as-you-go: let the console pass a custom credit amount ($5–$500).
+  const amountCents = Math.round(Number(body.amount_cents))
+  const customAmount = selected.mode === "payment" && Number.isFinite(amountCents) && amountCents > 0
+  if (customAmount && (amountCents < 500 || amountCents > 50000)) {
+    return json({ error: "Enter an amount between $5 and $500." }, 400)
+  }
+  const lineItem = customAmount
+    ? {
+        price_data: {
+          currency: "usd",
+          product_data: { name: "Crok-as-you-go credits" },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      }
+    : { price: selected.price, quantity: 1 }
+
   const origin = req.headers.get("origin") ?? "https://crokcode.tech"
   const session = await stripe.checkout.sessions.create({
     mode: selected.mode,
     customer: customerId,
     client_reference_id: user.id,
-    line_items: [{ price: selected.price, quantity: 1 }],
+    line_items: [lineItem],
     ...(selected.coupon ? { discounts: [{ coupon: selected.coupon }] } : {}),
     success_url: (body.success_url as string) ?? `${origin}/billing?status=success`,
     cancel_url: (body.cancel_url as string) ?? `${origin}/billing?status=cancelled`,

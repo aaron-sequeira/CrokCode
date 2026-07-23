@@ -40,11 +40,12 @@ export const api = {
   createKey: (name: string) =>
     call("keys", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.key as string),
   revokeKey: (id: string) => call(`keys?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
-  checkout: (plan: string) =>
+  checkout: (plan: string, amountCents?: number) =>
     call("checkout", {
       method: "POST",
       body: JSON.stringify({
         plan,
+        ...(amountCents ? { amount_cents: amountCents } : {}),
         success_url: `${location.origin}/app?status=success`,
         cancel_url: `${location.origin}/app?status=cancelled`,
       }),
