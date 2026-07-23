@@ -7,6 +7,7 @@ REPO="${CROKCODE_REPO:-aaron-sequeira/crokcode}"
 MUTED='\033[0;2m'
 RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
+GREEN='\033[38;5;148m'
 NC='\033[0m' # No Color
 
 usage() {
@@ -446,17 +447,17 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
 fi
 
 echo -e ""
-echo -e "${MUTED}                    ${NC}             ▄     "
-echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█▀▀▀ █▀▀█ █▀▀█ █▀▀█"
-echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█░░░ █░░█ █░░█ █▀▀▀"
-echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"
+echo -e "${GREEN}⠀                   ${NC}            ▄"
+echo -e "${GREEN}█▀▀▀ █▀▀▄ █▀▀█ █ ▄▀ ${NC}█▀▀▀ █▀▀█ █▀▀█ █▀▀█"
+echo -e "${GREEN}█    █▀█  █  █ █▀▄  ${NC}█    █  █ █  █ █▀▀▀"
+echo -e "${GREEN}▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀  ▀ ${NC}▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"
 echo -e ""
 echo -e ""
-echo -e "${MUTED}OpenCode includes free models, to start:${NC}"
+echo -e "${MUTED}CrokCode is ready, to start:${NC}"
 echo -e ""
 echo -e "cd <project>  ${MUTED}# Open directory${NC}"
-echo -e "opencode      ${MUTED}# Run command${NC}"
+echo -e "crokcode      ${MUTED}# Run command${NC}"
 echo -e ""
-echo -e "${MUTED}For more information visit ${NC}https://opencode.ai/docs"
+echo -e "${MUTED}For more information visit ${NC}https://crokcode.tech"
 echo -e ""
 echo -e ""
