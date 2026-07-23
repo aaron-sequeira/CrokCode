@@ -26,9 +26,15 @@ const MODELS: Record<string, { name: string; image?: boolean }> = {
   "x-ai/grok-5": { name: "Grok 5", image: true },
 }
 
-// A config model entry with the modalities opencode reads to decide capabilities.
+// A config model entry with the capabilities opencode reads. `reasoning: true`
+// enables the effort/variant switcher (/effort, /variants) so users can dial
+// reasoning down to spend fewer tokens on small tasks.
 function configModel(def: { name: string; image?: boolean }) {
-  return { name: def.name, modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] } }
+  return {
+    name: def.name,
+    reasoning: true,
+    modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] },
+  }
 }
 
 // The provider written per plan: named after the plan, exposing only its models.

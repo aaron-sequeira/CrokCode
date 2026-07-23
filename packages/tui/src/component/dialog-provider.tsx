@@ -540,10 +540,19 @@ const CROK_PLAN_MODEL_IDS: Record<string, string[]> = {
 // that plan's models.
 function crokProviderBlock(planID: string, apiKey: string) {
   const modelIDs = CROK_PLAN_MODEL_IDS[planID] ?? Object.keys(CROK_MODELS)
-  const models: Record<string, { name: string; modalities: { input: string[]; output: string[] } }> = {}
+  const models: Record<
+    string,
+    { name: string; reasoning: boolean; modalities: { input: string[]; output: string[] } }
+  > = {}
   for (const id of modelIDs) {
     const def = CROK_MODELS[id]
-    if (def) models[id] = { name: def.name, modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] } }
+    // reasoning: true enables the /effort (variant) switcher for these models.
+    if (def)
+      models[id] = {
+        name: def.name,
+        reasoning: true,
+        modalities: { input: def.image ? ["text", "image"] : ["text"], output: ["text"] },
+      }
   }
   return {
     npm: "@ai-sdk/openai-compatible",
