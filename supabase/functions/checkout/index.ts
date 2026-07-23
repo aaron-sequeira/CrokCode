@@ -62,6 +62,32 @@ Deno.serve(async (req) => {
     await admin.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id)
   }
 
+  // Plan change: if the customer already has a live subscription, swap its price
+  // in place (with proration) instead of opening a second checkout — otherwise
+  // Stripe creates a duplicate "incomplete" subscription and the plan never changes.
+  if (selected.mode === "subscription") {
+    const subs = await stripe.subscriptions.list({ customer: customerId, limit: 20 })
+    const current = subs.data.find(
+      (s) => s.status === "active" || s.status === "trialing" || s.status === "past_due",
+    )
+    if (current) {
+      const item = current.items.data[0]
+      if (item?.price?.id === selected.price) {
+        return json({ error: "You're already on this plan." }, 400)
+      }
+      await stripe.subscriptions.update(current.id, {
+        items: [{ id: item.id, price: selected.price }],
+        proration_behavior: "create_prorations",
+      })
+      // Reflect the change immediately; the webhook will also sync it.
+      await admin
+        .from("subscriptions")
+        .update({ plan: String(body.plan), stripe_price_id: selected.price, updated_at: new Date().toISOString() })
+        .eq("stripe_subscription_id", current.id)
+      return json({ updated: true })
+    }
+  }
+
   // Crok-as-you-go: let the console pass a custom credit amount ($5–$500).
   const amountCents = Math.round(Number(body.amount_cents))
   const customAmount = selected.mode === "payment" && Number.isFinite(amountCents) && amountCents > 0

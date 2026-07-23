@@ -40,6 +40,8 @@ export const api = {
   createKey: (name: string) =>
     call("keys", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.key as string),
   revokeKey: (id: string) => call(`keys?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // Returns { url } for a new checkout, or { updated: true } when an existing
+  // subscription was changed in place.
   checkout: (plan: string, amountCents?: number) =>
     call("checkout", {
       method: "POST",
@@ -49,7 +51,7 @@ export const api = {
         success_url: `${location.origin}/app?status=success`,
         cancel_url: `${location.origin}/app?status=cancelled`,
       }),
-    }).then((r) => r.url as string),
+    }).then((r) => r as { url?: string; updated?: boolean }),
 }
 
 export type Account = {

@@ -107,7 +107,12 @@ export function Dashboard({ user }: { user: User }) {
 
   const subscribe = (plan: string) =>
     guard(plan, async () => {
-      location.href = await api.checkout(plan)
+      const result = await api.checkout(plan)
+      if (result.url) {
+        location.href = result.url // new subscription — go to Stripe Checkout
+      } else if (result.updated) {
+        await refresh() // existing subscription changed in place (prorated)
+      }
     })
 
   const buyCredits = () =>
@@ -117,7 +122,8 @@ export function Dashboard({ user }: { user: User }) {
         setError("Enter an amount between $5 and $500.")
         return
       }
-      location.href = await api.checkout("crok-as-you-go", cents)
+      const result = await api.checkout("crok-as-you-go", cents)
+      if (result.url) location.href = result.url
     })
 
   const planName = account?.plan ? (PLAN_LABEL[account.plan] ?? account.plan) : null
