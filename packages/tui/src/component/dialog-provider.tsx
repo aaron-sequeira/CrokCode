@@ -10,6 +10,7 @@ import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@crokcode/sdk/v2"
 import { DialogModel } from "./dialog-model"
+import { DialogLocal } from "./dialog-local"
 import { useToast } from "../ui/toast"
 import { isConsoleManagedProvider } from "../util/provider-origin"
 import { useConnected } from "./use-connected"
@@ -56,6 +57,9 @@ type ProviderOption =
       type: "plan"
       planID: string
     })
+  | (ProviderOptionBase & {
+      type: "local"
+    })
 
 export function providerOptions(list: { id: string; name: string }[]): ProviderOption[] {
   return [
@@ -68,6 +72,13 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
       category: "Popular",
       planID: plan.id,
     })),
+    {
+      type: "local" as const,
+      title: "Local models",
+      value: "__crok_local__",
+      description: "Download & run on-device (Ollama)",
+      category: "Popular",
+    },
     ...pipe(
       list,
       sortBy(
@@ -161,6 +172,18 @@ export function createDialogProviderOptions() {
             category: provider.category,
             async onSelect() {
               return dialog.replace(() => <PlanConnect planID={provider.planID} title={provider.title} />)
+            },
+          }
+        }
+
+        if (provider.type === "local") {
+          return {
+            title: provider.title,
+            value: provider.value,
+            description: provider.description,
+            category: provider.category,
+            async onSelect() {
+              return dialog.replace(() => <DialogLocal />)
             },
           }
         }
