@@ -1,21 +1,86 @@
 <!doctype html>
-<!-- crokcode.tech build marker: v0.1 -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://crokcode.tech/" />
+    <meta name="theme-color" content="#0d0e0b" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
     <title>CrokCode — the AI coding agent that guards your code</title>
     <meta
       name="description"
-      content="CrokCode is an open source AI coding agent with Guard: it blocks secrets and insecure code before they ever reach disk."
+      content="CrokCode is an open-source AI coding agent built on opencode. Its built-in Guard scans every AI-written change and blocks hardcoded secrets and insecure code before they reach disk. Works with Claude, GPT, Gemini and more — or one CrokAPI bill."
     />
+    <meta
+      name="keywords"
+      content="AI coding agent, opencode, terminal coding agent, secret scanning, secure AI code, CrokCode, CrokAPI, Guard, coding CLI, Claude Code alternative"
+    />
+    <meta name="author" content="CrokCode" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CrokCode" />
+    <meta property="og:url" content="https://crokcode.tech/" />
+    <meta property="og:title" content="CrokCode — the AI coding agent that guards your code" />
+    <meta
+      property="og:description"
+      content="Open-source AI coding agent with Guard — it blocks hardcoded secrets and insecure code before they ever reach disk. Bring your own model keys, or pay one CrokAPI bill."
+    />
+    <meta property="og:image" content="https://crokcode.tech/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CrokCode — the AI coding agent that guards your code" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CrokCode — the AI coding agent that guards your code" />
+    <meta
+      name="twitter:description"
+      content="Open-source AI coding agent with Guard — it blocks hardcoded secrets and insecure code before they ever reach disk."
+    />
+    <meta name="twitter:image" content="https://crokcode.tech/og.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap"
       rel="stylesheet"
     />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "name": "CrokCode",
+            "url": "https://crokcode.tech/",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "macOS, Linux, Windows, WSL",
+            "description": "Open-source AI coding agent with Guard — a deterministic security scanner that blocks hardcoded secrets and insecure code before they reach disk.",
+            "image": "https://crokcode.tech/og.png",
+            "offers": [
+              { "@type": "Offer", "name": "CrokGo", "price": "10", "priceCurrency": "USD" },
+              { "@type": "Offer", "name": "CrokPro", "price": "20", "priceCurrency": "USD" },
+              { "@type": "Offer", "name": "Crok-as-you-go", "price": "0", "priceCurrency": "USD" }
+            ]
+          },
+          {
+            "@type": "Organization",
+            "name": "CrokCode",
+            "url": "https://crokcode.tech/",
+            "logo": "https://crokcode.tech/favicon.svg"
+          },
+          {
+            "@type": "WebSite",
+            "name": "CrokCode",
+            "url": "https://crokcode.tech/"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
