@@ -15,14 +15,27 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1"
 // Sell-side pricing, USD per 1M tokens. Must stay in sync with
 // packages/core/src/plugin/provider/crokapi.ts.
 const PRICING: Record<string, { input: number; output: number }> = {
-  "openai/gpt-5.6-sol": { input: 1.25, output: 10 },
-  "anthropic/claude-fable-5": { input: 3, output: 15 },
-  "anthropic/claude-opus-4.8": { input: 5, output: 25 },
-  "moonshotai/kimi-k3": { input: 0.6, output: 2.5 },
-  "z-ai/glm-5.2": { input: 0.4, output: 1.6 },
-  "google/gemini-3.5-pro": { input: 1.25, output: 10 },
-  "deepseek/deepseek-v4": { input: 0.28, output: 1.1 },
-  "x-ai/grok-5": { input: 3, output: 15 },
+  "deepseek/deepseek-v4-flash": { input: 0.14, output: 0.28 },
+  "z-ai/glm-4.7-flash": { input: 0.08, output: 0.56 },
+  "xiaomi/mimo-v2.5": { input: 0.2, output: 0.39 },
+  "qwen/qwen3-coder-flash": { input: 0.28, output: 1.36 },
+  "deepseek/deepseek-v4-pro": { input: 0.6, output: 1.22 },
+  "xiaomi/mimo-v2.5-pro": { input: 0.6, output: 1.22 },
+  "minimax/minimax-m3": { input: 0.42, output: 1.68 },
+  "qwen/qwen3.7-plus": { input: 0.45, output: 1.79 },
+  "z-ai/glm-5.2": { input: 1.11, output: 3.49 },
+  "moonshotai/kimi-k2.7-code": { input: 1.15, output: 5.25 },
+  "anthropic/claude-haiku-4.5": { input: 1.4, output: 7 },
+  "x-ai/grok-4.5": { input: 2.8, output: 8.4 },
+  "google/gemini-3.6-flash": { input: 2.1, output: 10.5 },
+  "anthropic/claude-sonnet-5": { input: 2.8, output: 14 },
+  "google/gemini-3.1-pro-preview": { input: 2.8, output: 16.8 },
+  "openai/gpt-5.4": { input: 3.5, output: 21 },
+  "openai/gpt-5.6-terra": { input: 3.5, output: 21 },
+  "moonshotai/kimi-k3": { input: 4.2, output: 21 },
+  "anthropic/claude-opus-4.8": { input: 7, output: 35 },
+  "openai/gpt-5.6-sol": { input: 7, output: 42 },
+  "anthropic/claude-fable-5": { input: 14, output: 70 },
 }
 // ponytail: unlisted models bill at a flat default until the catalog is dynamic.
 const FALLBACK_PRICE = { input: 2, output: 8 }
@@ -31,7 +44,17 @@ const FALLBACK_PRICE = { input: 2, output: 8 }
 // run a premium model (protects margin). CrokPro and Crok-as-you-go get all
 // models; usage is still capped by each account's credit balance/allowance.
 // Keep in sync with the plan model lists in the TUI and login command.
-const CROKGO_MODELS = new Set(["z-ai/glm-5.2", "deepseek/deepseek-v4", "moonshotai/kimi-k3"])
+const CROKGO_MODELS = new Set([
+  "deepseek/deepseek-v4-flash",
+  "z-ai/glm-4.7-flash",
+  "xiaomi/mimo-v2.5",
+  "qwen/qwen3-coder-flash",
+  "deepseek/deepseek-v4-pro",
+  "xiaomi/mimo-v2.5-pro",
+  "minimax/minimax-m3",
+  "qwen/qwen3.7-plus",
+  "z-ai/glm-5.2",
+])
 
 const PLAN_LABEL: Record<string, string> = {
   crokgo: "CrokGo",

@@ -52,13 +52,17 @@ const RULES = [
 
 const MODELS = [
   ["GPT-5.6 Sol", "openai/gpt-5.6-sol"],
-  ["Fable 5", "anthropic/claude-fable-5"],
   ["Claude Opus 4.8", "anthropic/claude-opus-4.8"],
+  ["Fable 5", "anthropic/claude-fable-5"],
+  ["Claude Sonnet 5", "anthropic/claude-sonnet-5"],
   ["Kimi K3", "moonshotai/kimi-k3"],
+  ["Grok 4.5", "x-ai/grok-4.5"],
+  ["Gemini 3.1 Pro", "google/gemini-3.1-pro-preview"],
   ["GLM 5.2", "z-ai/glm-5.2"],
-  ["Gemini 3.5 Pro", "google/gemini-3.5-pro"],
-  ["DeepSeek V4", "deepseek/deepseek-v4"],
-  ["Grok 5", "x-ai/grok-5"],
+  ["DeepSeek V4 Pro", "deepseek/deepseek-v4-pro"],
+  ["MiniMax M3", "minimax/minimax-m3"],
+  ["Qwen3.7 Plus", "qwen/qwen3.7-plus"],
+  ["MiMo V2.5", "xiaomi/mimo-v2.5"],
 ]
 
 const PLANS = [
@@ -67,8 +71,8 @@ const PLANS = [
     name: "CrokGo",
     price: "$5",
     per: " first month",
-    for: "Then $10/mo. Efficient models (GLM, DeepSeek, Kimi) with daily + weekly usage limits.",
-    features: ["GLM 5.2 · DeepSeek V4 · Kimi K3", "Guard on every edit", "$0.50/day · $1.50/week", "Community support"],
+    for: "Then $10/mo. 9 efficient models (GLM, DeepSeek, Qwen, MiniMax, MiMo) with daily + weekly usage limits.",
+    features: ["9 efficient coding models", "Guard on every edit", "$0.50/day · $1.50/week", "Community support"],
   },
   {
     id: "crokpro",
@@ -77,7 +81,7 @@ const PLANS = [
     per: "/month",
     for: "For people who reach for the frontier models all day.",
     features: [
-      "Every CrokAPI model (Opus, GPT, Grok…)",
+      "All 21 models (Opus, GPT, Grok, Gemini…)",
       "Higher daily & weekly limits",
       "Priority routing on frontier models",
       "Usage analytics",
