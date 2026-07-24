@@ -12,12 +12,15 @@ import {
   canRun,
   deviceSpecs,
   gb,
-  LOCAL_MODELS,
+  mergeLocalModels,
+  modelInfo,
   OLLAMA_URL,
   ollamaStatus,
+  OUTPUT_LIMIT,
   pullModel,
   type DeviceSpecs,
   type LocalModel,
+  type OllamaModel,
 } from "../util/local-models"
 
 function bar(pct: number, width = 26) {
@@ -35,6 +38,7 @@ export function DialogLocal() {
   const [phase, setPhase] = createSignal<"checking" | "install" | "list" | "pulling" | "connecting">("checking")
   const [specs, setSpecs] = createSignal<DeviceSpecs>()
   const [installed, setInstalled] = createSignal<Set<string>>(new Set())
+  const [models, setModels] = createSignal<OllamaModel[]>([])
   const [pull, setPull] = createSignal<{ model: LocalModel; pct: number; status: string }>()
   let aborter: AbortController | undefined
   onCleanup(() => aborter?.abort())
@@ -47,6 +51,7 @@ export function DialogLocal() {
       return
     }
     setInstalled(status.installed)
+    setModels(status.models)
     setPhase("list")
   })
 
@@ -55,6 +60,10 @@ export function DialogLocal() {
   async function connect(model: LocalModel) {
     setPhase("connecting")
     try {
+      // Ask Ollama for the real context window and tool support instead of
+      // guessing: a missing context limit silently disables compaction, and a
+      // wrong tool_call stalls the agent loop on the first tool call.
+      const info = await modelInfo(model.id)
       await sdk.client.global.config.update({
         config: {
           provider: {
@@ -63,13 +72,24 @@ export function DialogLocal() {
               name: "Ollama (local)",
               options: { baseURL: `${OLLAMA_URL}/v1`, apiKey: "ollama" },
               // Deep-merged, so each connected model is added, not replaced.
-              models: { [model.id]: { name: `${model.name} ${model.params}`, tool_call: true } },
+              models: {
+                [model.id]: {
+                  name: `${model.name} ${model.params}`,
+                  tool_call: info.tools,
+                  ...(info.context ? { limit: { context: info.context, output: OUTPUT_LIMIT } } : {}),
+                },
+              },
             },
           },
         } as any,
       })
       await sdk.client.instance.dispose()
       await sync.bootstrap()
+      if (!info.tools)
+        toast.show({
+          variant: "warning",
+          message: `${model.name} can't call tools — agent features won't work with it.`,
+        })
       dialog.replace(() => <DialogModel providerID="ollama" />)
     } catch {
       toast.show({ variant: "error", message: "Connected the model, but could not update the config." })
@@ -96,7 +116,7 @@ export function DialogLocal() {
   }
 
   const options = createMemo(() =>
-    LOCAL_MODELS.map((model) => {
+    mergeLocalModels(models()).map((model) => {
       const machine = specs()
       const has = isInstalled(model.id)
       const runnable = machine ? canRun(model, machine) : true
@@ -107,12 +127,16 @@ export function DialogLocal() {
         disabled: !has && !runnable,
         // DialogSelect wraps option.footer in a <text>, so use <span> (a valid
         // text child) — a nested <text> would crash the renderer.
-        footer: has ? (
-          <span style={{ fg: theme.success }}>✓ downloaded</span>
-        ) : runnable ? (
-          <span style={{ fg: theme.textMuted }}>runs on your machine</span>
-        ) : (
+        footer: !runnable ? (
           <span style={{ fg: theme.error }}>needs {model.minRamGb} GB RAM</span>
+        ) : model.agent === true ? (
+          <span style={{ fg: theme.success }}>{has ? "✓ downloaded · " : ""}tools ✓</span>
+        ) : model.agent === false ? (
+          <span style={{ fg: theme.textMuted }}>{has ? "✓ downloaded · " : ""}chat only</span>
+        ) : has ? (
+          <span style={{ fg: theme.textMuted }}>✓ downloaded</span>
+        ) : (
+          <span style={{ fg: theme.textMuted }}>tool support checked on connect</span>
         ),
         async onSelect() {
           if (has) return connect(model)
