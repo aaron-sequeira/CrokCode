@@ -54,6 +54,11 @@ export function isLocal() {
   return InstallationChannel === "local"
 }
 
+export function isCrokCodeExecutable(executable: string) {
+  const name = path.basename(executable).toLowerCase()
+  return name === "crokcode" || name === "crokcode.exe"
+}
+
 export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
   stderr: Schema.String,
 }) {
@@ -220,6 +225,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
         }
       }),
       method: Effect.fn("Installation.method")(function* () {
+        if (isCrokCodeExecutable(process.execPath)) return "curl" as Method
         if (process.execPath.includes(path.join(".opencode", "bin"))) return "curl" as Method
         if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
         const exec = process.execPath.toLowerCase()

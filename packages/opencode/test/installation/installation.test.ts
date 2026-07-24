@@ -1,4 +1,4 @@
-import { describe, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { makeGlobalNode } from "@crokcode/core/effect/app-node"
 import { LayerNode } from "@crokcode/core/effect/layer-node"
 import { httpClient } from "@crokcode/core/effect/app-node-platform"
@@ -67,6 +67,12 @@ function testLayer(
 }
 
 describe("installation", () => {
+  test("recognizes CrokCode executables before probing package managers", () => {
+    expect(Installation.isCrokCodeExecutable("C:\\Users\\test\\AppData\\Local\\crokcode\\bin\\crokcode.exe")).toBeTrue()
+    expect(Installation.isCrokCodeExecutable("/home/test/.crokcode/bin/crokcode")).toBeTrue()
+    expect(Installation.isCrokCodeExecutable("/home/test/.opencode/bin/opencode")).toBeFalse()
+  })
+
   describe("latest", () => {
     const releaseCalls: string[] = []
     testEffect(
