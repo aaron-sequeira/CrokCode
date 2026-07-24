@@ -60,7 +60,7 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
 import { DialogAlert } from "./ui/dialog-alert"
-import { DialogConfirm } from "./ui/dialog-confirm"
+import { DialogUpdate } from "./ui/dialog-update"
 import { ToastProvider, useToast } from "./ui/toast"
 import { isDefaultTitle } from "./util/session"
 import { KVProvider, useKV } from "./context/kv"
@@ -1077,19 +1077,14 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     const skipped = kv.get("skipped_version")
     if (skipped && !isVersionGreater(version, skipped)) return
 
-    const choice = await DialogConfirm.show(
-      dialog,
-      `Update Available`,
-      `A new release v${version} is available. Would you like to update now?`,
-      "skip",
-    )
+    const choice = await DialogUpdate.show(dialog, version)
 
-    if (choice === false) {
+    if (choice === "skip") {
       kv.set("skipped_version", version)
       return
     }
 
-    if (choice !== true) return
+    if (choice === "later") return
 
     toast.show({
       variant: "info",
