@@ -1,31 +1,49 @@
 /** @jsxImportSource @opentui/solid */
-import { expect, test, mock } from "bun:test"
+import { expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui"
-
-mock.module("../../../src/context/sdk", () => ({
-  useSDK: () => ({
-    client: { global: { config: { update: async () => ({}) } }, instance: { dispose: async () => ({}) } },
-  }),
-  SDKProvider: (p: any) => p.children,
-}))
-mock.module("../../../src/context/sync", () => ({
-  useSync: () => ({ bootstrap: async () => ({}) }),
-  SyncProvider: (p: any) => p.children,
-}))
-
-const { TestTuiContexts } = await import("../../fixture/tui-environment")
-const { OpencodeKeymapProvider, registerOpencodeKeymap } = await import("../../../src/keymap")
-const { TuiConfigProvider } = await import("../../../src/config")
-const { KVProvider } = await import("../../../src/context/kv")
-const { ThemeProvider } = await import("../../../src/context/theme")
-const { DialogProvider } = await import("../../../src/ui/dialog")
-const { ToastProvider } = await import("../../../src/ui/toast")
-const { ClipboardProvider } = await import("../../../src/context/clipboard")
-const { createTuiResolvedConfig } = await import("../../fixture/tui-runtime")
-const { DialogLocal } = await import("../../../src/component/dialog-local")
+import { TestTuiContexts } from "../../fixture/tui-environment"
+import { OpencodeKeymapProvider, registerOpencodeKeymap } from "../../../src/keymap"
+import { TuiConfigProvider } from "../../../src/config"
+import { KVProvider } from "../../../src/context/kv"
+import { ThemeProvider, useTheme } from "../../../src/context/theme"
+import { DialogProvider } from "../../../src/ui/dialog"
+import { ToastProvider } from "../../../src/ui/toast"
+import { ClipboardProvider } from "../../../src/context/clipboard"
+import { DialogSelect } from "../../../src/ui/dialog-select"
+import { createTuiResolvedConfig } from "../../fixture/tui-runtime"
+import { LOCAL_MODELS, canRun, gb, type DeviceSpecs } from "../../../src/util/local-models"
 
 const config = createTuiResolvedConfig()
+
+function Inner() {
+  const { theme } = useTheme()
+  const specs: DeviceSpecs = { ramGb: 15.4, cpus: 24, platform: "win32" }
+  const options = LOCAL_MODELS.map((model) => {
+    const has = model.id === "llama3.1:8b"
+    const runnable = canRun(model, specs)
+    return {
+      title: `${model.name} ${model.params}`,
+      value: model.id,
+      description: `${gb(model.sizeGb)} · ${model.note}`,
+      disabled: !has && !runnable,
+      footer: !runnable ? (
+        <span style={{ fg: theme.error }}>needs {model.minRamGb} GB RAM</span>
+      ) : has ? (
+        <span style={{ fg: theme.success }}>✓ downloaded</span>
+      ) : (
+        <span style={{ fg: theme.textMuted }}>available</span>
+      ),
+    }
+  })
+  return (
+    <DialogSelect
+      title="Local models"
+      options={options}
+      footer={<text fg={theme.textMuted}>Your machine: 15 GB RAM · 24 cores</text>}
+    />
+  )
+}
 
 function Root() {
   const renderer = useRenderer()
@@ -40,7 +58,7 @@ function Root() {
               <ClipboardProvider>
                 <ToastProvider>
                   <DialogProvider>
-                    <DialogLocal />
+                    <Inner />
                   </DialogProvider>
                 </ToastProvider>
               </ClipboardProvider>

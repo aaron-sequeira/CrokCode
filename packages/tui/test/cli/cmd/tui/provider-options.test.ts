@@ -11,7 +11,9 @@ describe("providerOptions", () => {
   })
 
   test("does not use Other as the generic provider category", () => {
-    expect(providerOptions([{ id: "mistral", name: "Mistral" }])[0]?.category).toBe("Providers")
+    expect(providerOptions([{ id: "mistral", name: "Mistral" }]).find((option) => option.value === "mistral")?.category).toBe(
+      "Providers",
+    )
   })
 
   test("keeps popular providers first and sorts the rest alphabetically", () => {
@@ -23,7 +25,18 @@ describe("providerOptions", () => {
         { id: "mistral", name: "Mistral" },
         { id: "aws", name: "AWS Bedrock" },
       ]).map((option) => option.value),
-    ).toEqual(["openai", "anthropic", "aws", "mistral", "custom-z", "__opencode_custom_provider__"])
+    ).toEqual([
+      "__crok_plan_crokgo",
+      "__crok_plan_crokpro",
+      "__crok_plan_crok-as-you-go",
+      "__crok_local__",
+      "openai",
+      "anthropic",
+      "aws",
+      "mistral",
+      "custom-z",
+      "__opencode_custom_provider__",
+    ])
   })
 
   test("does not collide with a configured provider named other", () => {
