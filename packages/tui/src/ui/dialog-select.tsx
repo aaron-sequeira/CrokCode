@@ -210,7 +210,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   })
 
   const dimensions = useTerminalDimensions()
-  const height = createMemo(() => Math.min(rows(), Math.floor(dimensions().height / 2) - 6))
+  // Never let the list collapse to <=0: the scrollbox then draws every row at
+  // the same position, overprinting them into one garbled strip instead of
+  // scrolling. Short terminals get one scrollable row rather than a mess.
+  const height = createMemo(() => Math.max(1, Math.min(rows(), Math.floor(dimensions().height / 2) - 6)))
 
   const selected = createMemo(() => flat()[store.selected])
 
