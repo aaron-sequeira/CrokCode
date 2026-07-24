@@ -29,7 +29,6 @@ import { DialogProvider, useDialog } from "./ui/dialog"
 import { DialogProvider as DialogProviderList } from "./component/dialog-provider"
 import { DialogUsage } from "./component/dialog-usage"
 import { DialogContext } from "./component/dialog-context"
-import { DialogLocal } from "./component/dialog-local"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { ProjectProvider, useProject } from "./context/project"
@@ -774,16 +773,6 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         slashName: "context",
         run: () => {
           dialog.replace(() => <DialogContext />)
-        },
-        category: "Provider",
-      },
-      {
-        name: "crokcode.local",
-        title: "Local models (download & run on-device)",
-        slashName: "local",
-        slashAliases: ["ollama"],
-        run: () => {
-          dialog.replace(() => <DialogLocal />)
         },
         category: "Provider",
       },

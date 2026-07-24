@@ -191,7 +191,7 @@ export function createDialogProviderOptions() {
               if (status.models.length === 0) {
                 toast.show({
                   variant: "warning",
-                  message: "No Ollama models are installed. Run /local to download one.",
+                  message: "No Ollama models are installed. Install one with Ollama, then try again.",
                 })
                 return
               }
