@@ -21,6 +21,15 @@ export type OllamaModel = {
   size?: number
 }
 
+export function ollamaProvider(models: OllamaModel[]) {
+  return {
+    npm: "@ai-sdk/openai-compatible",
+    name: "Ollama (local)",
+    options: { baseURL: `${OLLAMA_URL}/v1`, apiKey: "ollama" },
+    models: Object.fromEntries(models.map((model) => [model.name, { name: model.name }])),
+  }
+}
+
 // Curated, coding-first catalog spanning tiny -> workstation sizes.
 //
 // `agent` marks models that emit parseable tool calls, which crokcode's loop

@@ -44,6 +44,12 @@ describe("providerOptions", () => {
     expect(new Set(values).size).toBe(values.length)
   })
 
+  test("describes local models as installed Ollama models", () => {
+    expect(providerOptions([]).find((option) => option.value === "__crok_local__")?.description).toBe(
+      "Use models installed in Ollama",
+    )
+  })
+
   test("normalizes and validates custom provider ids", () => {
     expect(normalizeCustomProviderID("  custom-provider  ")).toBe("custom-provider")
     expect(normalizeCustomProviderID("custom_provider")).toBe("custom_provider")

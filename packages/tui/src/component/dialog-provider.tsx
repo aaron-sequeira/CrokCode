@@ -10,12 +10,12 @@ import { useTheme } from "../context/theme"
 import { TextAttributes } from "@opentui/core"
 import type { ProviderAuthAuthorization, ProviderAuthMethod } from "@crokcode/sdk/v2"
 import { DialogModel } from "./dialog-model"
-import { DialogLocal } from "./dialog-local"
 import { useToast } from "../ui/toast"
 import { isConsoleManagedProvider } from "../util/provider-origin"
 import { useConnected } from "./use-connected"
 import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
+import { ollamaProvider, ollamaStatus } from "../util/local-models"
 
 // Server providers that still belong in "Popular". OpenCode Zen (opencode) and
 // OpenCode Go (opencode-go) were removed so CrokCode's own plans lead instead.
@@ -76,7 +76,7 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
       type: "local" as const,
       title: "Local models",
       value: "__crok_local__",
-      description: "Download & run on-device (Ollama)",
+      description: "Use models installed in Ollama",
       category: "Popular",
     },
     ...pipe(
@@ -183,7 +183,29 @@ export function createDialogProviderOptions() {
             description: provider.description,
             category: provider.category,
             async onSelect() {
-              return dialog.replace(() => <DialogLocal />)
+              const status = await ollamaStatus()
+              if (!status.running) {
+                toast.show({ variant: "warning", message: "Ollama is not running. Start Ollama and try again." })
+                return
+              }
+              if (status.models.length === 0) {
+                toast.show({
+                  variant: "warning",
+                  message: "No Ollama models are installed. Run /local to download one.",
+                })
+                return
+              }
+              try {
+                await sdk.client.global.config.update({
+                  config: { provider: { ollama: ollamaProvider(status.models) } } as any,
+                })
+                await sdk.client.instance.dispose()
+                await sync.bootstrap()
+                dialog.replace(() => <DialogModel providerID="ollama" />)
+              } catch {
+                toast.show({ variant: "error", message: "Could not connect the installed Ollama models." })
+                dialog.clear()
+              }
             },
           }
         }
