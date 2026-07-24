@@ -44,11 +44,21 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: bun install
 
       - name: Build crokcode
         working-directory: packages/opencode
+        env:
+          CROKCODE_CHANNEL: latest
+          CROKCODE_VERSION: ${{ steps.version.outputs.version }}
         run: bun run script/build.ts --single --skip-install
 
       - name: Archive (tar.gz)
