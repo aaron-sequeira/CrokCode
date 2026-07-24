@@ -8,6 +8,8 @@ import { withTransientReadRetry } from "@/util/effect-http-client"
 import { errorMessage } from "@/util/error"
 import { ChildProcess } from "effect/unstable/process"
 import { AppProcess } from "@crokcode/core/process"
+import crypto from "crypto"
+import os from "os"
 import path from "path"
 import { makeRuntime } from "@crokcode/core/effect/runtime"
 import semver from "semver"
@@ -144,14 +146,60 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
 
     const upgradeCurl = Effect.fnUntraced(
       function* (target: string) {
-        const response = yield* httpOk.execute(HttpClientRequest.get("https://opencode.ai/install"))
+        if (process.platform === "win32") {
+          const stage = path.join(os.tmpdir(), `crokcode-update-${crypto.randomUUID()}`)
+          const download = yield* run(
+            [
+              "powershell.exe",
+              "-NoProfile",
+              "-NonInteractive",
+              "-Command",
+              "Invoke-RestMethod 'https://www.crokcode.tech/install.ps1' | Invoke-Expression",
+            ],
+            {
+              env: {
+                CROKCODE_VERSION: target,
+                CROKCODE_INSTALL_DIR: stage,
+                CROKCODE_NO_MODIFY_PATH: "1",
+              },
+            },
+          )
+          if (download.code !== 0) return download
+
+          const script = Buffer.from(
+            "Wait-Process -Id $env:CROKCODE_PARENT_PID -ErrorAction SilentlyContinue; Move-Item -LiteralPath $env:CROKCODE_STAGED_BINARY -Destination $env:CROKCODE_TARGET_BINARY -Force; Remove-Item -LiteralPath $env:CROKCODE_STAGE_DIR -Recurse -Force",
+            "utf16le",
+          ).toString("base64")
+          return yield* run(
+            [
+              "powershell.exe",
+              "-NoProfile",
+              "-NonInteractive",
+              "-Command",
+              `Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile','-NonInteractive','-EncodedCommand','${script}')`,
+            ],
+            {
+              env: {
+                CROKCODE_PARENT_PID: process.pid.toString(),
+                CROKCODE_STAGED_BINARY: path.join(stage, "crokcode.exe"),
+                CROKCODE_TARGET_BINARY: process.execPath,
+                CROKCODE_STAGE_DIR: stage,
+              },
+            },
+          )
+        }
+
+        const response = yield* httpOk.execute(HttpClientRequest.get("https://www.crokcode.tech/install.sh"))
         const body = yield* response.text
         const bodyBytes = new TextEncoder().encode(body)
         const shell = yield* upgradeScriptShell()
         const result = yield* appProcess.run(
           ChildProcess.make(shell, [], {
             stdin: Stream.make(bodyBytes),
-            env: { VERSION: target },
+            env: {
+              VERSION: target,
+              CROKCODE_INSTALL_DIR: path.dirname(process.execPath),
+            },
             extendEnv: true,
           }),
         )
@@ -255,7 +303,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
         }
 
         const response = yield* httpOk.execute(
-          HttpClientRequest.get("https://api.github.com/repos/anomalyco/opencode/releases/latest").pipe(
+          HttpClientRequest.get("https://api.github.com/repos/aaron-sequeira/CrokCode/releases/latest").pipe(
             HttpClientRequest.acceptJson,
           ),
         )
@@ -306,7 +354,8 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
             upgradeResult = yield* run(["scoop", "install", `opencode@${target}`])
             break
           default:
-            return yield* new UpgradeFailedError({ stderr: `Unknown installation method: ${m}` })
+            upgradeResult = yield* upgradeCurl(target)
+            break
         }
         if (!upgradeResult || upgradeResult.code !== 0) {
           return yield* new UpgradeFailedError({ stderr: upgradeFailure(m, upgradeResult) })

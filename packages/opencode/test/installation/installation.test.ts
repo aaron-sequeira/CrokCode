@@ -68,12 +68,19 @@ function testLayer(
 
 describe("installation", () => {
   describe("latest", () => {
-    testEffect(testLayer(() => jsonResponse({ tag_name: "v1.2.3" }))).effect(
-      "reads release version from GitHub releases",
+    const releaseCalls: string[] = []
+    testEffect(
+      testLayer((request) => {
+        releaseCalls.push(request.url)
+        return jsonResponse({ tag_name: "v1.2.3" })
+      }),
+    ).effect(
+      "reads release version from CrokCode GitHub releases",
       () =>
         Effect.gen(function* () {
           const result = yield* Installation.use.latest("unknown")
           expect(result).toBe("1.2.3")
+          expect(releaseCalls).toEqual(["https://api.github.com/repos/aaron-sequeira/CrokCode/releases/latest"])
         }),
     )
 
@@ -182,6 +189,34 @@ describe("installation", () => {
   })
 
   describe("upgrade", () => {
+    const updaterCalls: string[] = []
+    testEffect(
+      testLayer(
+        (request) => {
+          updaterCalls.push(request.url)
+          return new Response("install script", { status: 200 })
+        },
+        (cmd, args) => {
+          updaterCalls.push([cmd, ...args].join(" "))
+          if (cmd === "bash" && args[0] === "--version") return "GNU bash"
+          return ""
+        },
+      ),
+    ).effect("uses the CrokCode installer for unknown install paths", () =>
+      Effect.gen(function* () {
+        yield* Installation.use.upgrade("unknown", "0.3.5")
+        expect(
+          updaterCalls.some((call) =>
+            call.includes(process.platform === "win32" ? "-EncodedCommand" : "www.crokcode.tech/install.sh"),
+          ),
+        ).toBeTrue()
+        if (process.platform === "win32") {
+          expect(updaterCalls.filter((call) => call.startsWith("powershell.exe")).length).toBe(2)
+          expect(updaterCalls.some((call) => call.includes("www.crokcode.tech/install.ps1"))).toBeTrue()
+        }
+      }),
+    )
+
     testEffect(
       testLayer(
         () => jsonResponse({}),
@@ -205,6 +240,7 @@ describe("installation", () => {
       testLayer(
         () => new Response("install script with token=secret", { status: 200 }),
         (cmd, args) => {
+          if (cmd === "powershell.exe") return { code: 1, stderr: "script output with token=secret" }
           if (cmd === "bash" && args[0] === "--version") return "GNU bash"
           if (cmd === "bash" || cmd === "sh") return { code: 1, stderr: "script output with token=secret" }
           return ""
@@ -221,10 +257,12 @@ describe("installation", () => {
       }),
     )
 
+    const shellCalls: string[] = []
     testEffect(
       testLayer(
         () => new Response("install script", { status: 200 }),
         (cmd, args) => {
+          shellCalls.push(cmd)
           if (cmd === "bash" && args[0] === "--version") return { code: 1, stderr: "missing" }
           if (cmd === "bash") return { code: 1, stderr: "should not execute installer with bash" }
           if (cmd === "sh") return "ok"
@@ -234,6 +272,7 @@ describe("installation", () => {
     ).effect("falls back to sh when bash is unavailable during curl upgrade", () =>
       Effect.gen(function* () {
         yield* Installation.use.upgrade("curl", "9.9.9")
+        expect(shellCalls).toContain(process.platform === "win32" ? "powershell.exe" : "sh")
       }),
     )
   })
