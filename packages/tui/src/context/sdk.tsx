@@ -1,4 +1,4 @@
-import { createOpencodeClient } from "@crokcode/sdk/v2"
+import { createCrokcodeClient } from "@crokcode/sdk/v2"
 import type { GlobalEvent } from "@crokcode/sdk/v2"
 import { Flag } from "@crokcode/core/flag/flag"
 import { createSimpleContext } from "./helper"
@@ -21,7 +21,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     let sse: AbortController | undefined
 
     function createSDK() {
-      return createOpencodeClient({
+      return createCrokcodeClient({
         baseUrl: props.url,
         signal: abort.signal,
         directory: props.directory,

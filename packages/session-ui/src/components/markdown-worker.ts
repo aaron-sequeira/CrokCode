@@ -1,5 +1,5 @@
 import MarkdownShikiWorkerUrl from "./markdown-shiki.worker.ts?worker&url"
-import { OpenCodeTheme } from "@crokcode/ui/context/marked"
+import { CrokCodeTheme } from "@crokcode/ui/context/marked"
 import {
   applyMarkdownWorkerResponse,
   shouldReleaseMarkdownWorkerState,
@@ -117,6 +117,6 @@ function getWorker() {
   }
   worker.onerror = (event) => fail(event.message || "Markdown highlighting worker failed")
   worker.onmessageerror = () => fail("Markdown worker response failed")
-  worker.postMessage({ type: "init", theme: OpenCodeTheme } satisfies MarkdownWorkerRequest)
+  worker.postMessage({ type: "init", theme: CrokCodeTheme } satisfies MarkdownWorkerRequest)
   return worker
 }

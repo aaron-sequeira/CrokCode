@@ -14,13 +14,13 @@
 
 ---
 
-CrokCode is a fork of [opencode](https://github.com/anomalyco/opencode) — a terminal-first AI coding agent — with three additions:
+CrokCode is a fork of [crokcode](https://github.com/anomalyco/opencode) — a terminal-first AI coding agent — with three additions:
 
 - **Guard** — a deterministic security scanner that runs on every AI-proposed change *before it reaches disk*. It hard-blocks hardcoded secrets and warns on risky patterns, and redacts detected secrets from what's sent to the model.
 - **CrokAPI** — an optional hosted, OpenAI-compatible model gateway, so you can pay one bill instead of juggling per-provider API keys.
 - **Usage-based plans** — daily/weekly limits or pay-as-you-go, managed from a web console at [crokcode.tech](https://crokcode.tech).
 
-Everything opencode does still works: bring your own Anthropic, OpenAI, Google, OpenRouter or local model keys. CrokAPI is entirely optional.
+Everything crokcode does still works: bring your own Anthropic, OpenAI, Google, OpenRouter or local model keys. CrokAPI is entirely optional.
 
 ## Installation
 
@@ -64,20 +64,20 @@ Requires [Bun](https://bun.sh):
 
 ```bash
 bun install
-cd packages/opencode
+cd packages/crokcode
 bun run script/build.ts --single --skip-install
 ```
 
-This produces `packages/opencode/dist/crokcode-<os>-<arch>/bin/crokcode`. Install the binary you just built:
+This produces `packages/crokcode/dist/crokcode-<os>-<arch>/bin/crokcode`. Install the binary you just built:
 
 ```bash
 # macOS / Linux
-./install.sh --binary packages/opencode/dist/crokcode-*/bin/crokcode
+./install.sh --binary packages/crokcode/dist/crokcode-*/bin/crokcode
 ```
 
 ```powershell
 # Windows
-$env:CROKCODE_BINARY="$PWD\packages\opencode\dist\crokcode-windows-x64\bin\crokcode.exe"; ./install.ps1
+$env:CROKCODE_BINARY="$PWD\packages\crokcode\dist\crokcode-windows-x64\bin\crokcode.exe"; ./install.ps1
 ```
 
 ## Plans
@@ -94,7 +94,7 @@ Subscriptions are capped by daily and weekly usage budgets (they reset each day 
 
 ### Connecting the CLI
 
-The easiest way is `crokcode login`, which opens your browser, pairs the CLI, and writes the provider config for you. To do it manually, add a provider block to `~/.config/crokcode/opencode.jsonc`:
+The easiest way is `crokcode login`, which opens your browser, pairs the CLI, and writes the provider config for you. To do it manually, add a provider block to `~/.config/crokcode/crokcode.jsonc`:
 
 ```jsonc
 {
@@ -167,7 +167,7 @@ Register the Stripe webhook pointing at `/functions/v1/stripe-webhook`, subscrib
 
 ## Agents
 
-CrokCode inherits opencode's agents, switchable with the `Tab` key:
+CrokCode inherits crokcode's agents, switchable with the `Tab` key:
 
 - **build** — full-access agent for development work
 - **plan** — read-only agent for analysis and exploration (denies edits, asks before running commands)
@@ -175,14 +175,14 @@ CrokCode inherits opencode's agents, switchable with the `Tab` key:
 
 ## Configuration & docs
 
-CrokCode reads the same config format as opencode (`opencode.json` / `opencode.jsonc`). For base configuration, agents, keybinds and MCP, opencode's docs apply: [opencode.ai/docs](https://opencode.ai/docs). CrokCode-specific features — Guard, CrokAPI, plans, `/usage`, `/effort` — are documented here and at [crokcode.tech](https://crokcode.tech).
+CrokCode reads the same config format as crokcode (`crokcode.json` / `crokcode.jsonc`). For base configuration, agents, keybinds and MCP, crokcode's docs apply: [opencode.ai/docs](https://opencode.ai/docs). CrokCode-specific features — Guard, CrokAPI, plans, `/usage`, `/effort` — are documented here and at [crokcode.tech](https://crokcode.tech).
 
 ## Contributing
 
-CrokCode is MIT-licensed and built on [opencode](https://github.com/anomalyco/opencode) (also MIT). See [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
+CrokCode is MIT-licensed and built on [crokcode](https://github.com/anomalyco/opencode) (also MIT). See [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
 
 ---
 
 <p align="center">
-  <a href="https://crokcode.tech">crokcode.tech</a> · Built on <a href="https://github.com/anomalyco/opencode">opencode</a>
+  <a href="https://crokcode.tech">crokcode.tech</a> · Built on <a href="https://github.com/anomalyco/opencode">crokcode</a>
 </p>

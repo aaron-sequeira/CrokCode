@@ -105,7 +105,7 @@ const FAQ = [
   ],
   [
     "Do I have to use CrokAPI?",
-    "No. CrokCode is a fork of opencode and keeps every provider it supports, so your own Anthropic, OpenAI, Google, OpenRouter or local model keys work as they always did. CrokAPI is there if you would rather pay one bill and skip key management.",
+    "No. CrokCode is a fork of crokcode and keeps every provider it supports, so your own Anthropic, OpenAI, Google, OpenRouter or local model keys work as they always did. CrokAPI is there if you would rather pay one bill and skip key management.",
   ],
   [
     "What does Guard actually check?",
@@ -174,7 +174,7 @@ export function Landing() {
             </h1>
             <p className="lede">
               CrokCode writes code with any model you like, then refuses to write a secret to disk. Open source,
-              terminal-first, and built on opencode.
+              terminal-first, and built on crokcode.
             </p>
 
             <div className="os-tabs">
@@ -265,7 +265,7 @@ export function Landing() {
           <div className="wrap">
             <div className="section-head">
               <div className="eyebrow">What it is</div>
-              <h2>Everything opencode does, plus a security layer</h2>
+              <h2>Everything crokcode does, plus a security layer</h2>
               <p className="lede">
                 CrokCode is a fork, not a rewrite. Every provider, agent and integration carries over. Guard, the
                 theme and CrokAPI are what we added.

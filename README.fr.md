@@ -3,7 +3,7 @@
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Logo OpenCode">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="Logo CrokCode">
     </picture>
   </a>
 </p>
@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+[![CrokCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
 ---
 
@@ -51,14 +51,14 @@ curl -fsSL https://opencode.ai/install | bash
 
 # Gestionnaires de paquets
 npm i -g opencode-ai@latest        # ou bun/pnpm/yarn
-scoop install opencode             # Windows
-choco install opencode             # Windows
-brew install anomalyco/tap/opencode # macOS et Linux (recommandé, toujours à jour)
-brew install opencode              # macOS et Linux (formule officielle brew, mise à jour moins fréquente)
-sudo pacman -S opencode            # Arch Linux (Stable)
-paru -S opencode-bin               # Arch Linux (Latest from AUR)
-mise use -g opencode               # n'importe quel OS
-nix run nixpkgs#opencode           # ou github:anomalyco/opencode pour la branche dev la plus récente
+scoop install crokcode             # Windows
+choco install crokcode             # Windows
+brew install anomalyco/tap/crokcode # macOS et Linux (recommandé, toujours à jour)
+brew install crokcode              # macOS et Linux (formule officielle brew, mise à jour moins fréquente)
+sudo pacman -S crokcode            # Arch Linux (Stable)
+paru -S crokcode-bin               # Arch Linux (Latest from AUR)
+mise use -g crokcode               # n'importe quel OS
+nix run nixpkgs#crokcode           # ou github:anomalyco/opencode pour la branche dev la plus récente
 ```
 
 > [!TIP]
@@ -66,20 +66,20 @@ nix run nixpkgs#opencode           # ou github:anomalyco/opencode pour la branch
 
 ### Application de bureau (BETA)
 
-OpenCode est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases](https://github.com/anomalyco/opencode/releases) ou [opencode.ai/download](https://opencode.ai/download).
+CrokCode est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases](https://github.com/anomalyco/opencode/releases) ou [opencode.ai/download](https://opencode.ai/download).
 
 | Plateforme            | Téléchargement                     |
 | --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe` |
+| macOS (Apple Silicon) | `crokcode-desktop-mac-arm64.dmg`   |
+| macOS (Intel)         | `crokcode-desktop-mac-x64.dmg`     |
+| Windows               | `crokcode-desktop-windows-x64.exe` |
 | Linux                 | `.deb`, `.rpm`, ou AppImage        |
 
 ```bash
 # macOS (Homebrew)
-brew install --cask opencode-desktop
+brew install --cask crokcode-desktop
 # Windows (Scoop)
-scoop bucket add extras; scoop install extras/opencode-desktop
+scoop bucket add extras; scoop install extras/crokcode-desktop
 ```
 
 #### Répertoire d'installation
@@ -89,7 +89,7 @@ Le script d'installation respecte l'ordre de priorité suivant pour le chemin d'
 1. `$CROKCODE_INSTALL_DIR` - Répertoire d'installation personnalisé
 2. `$XDG_BIN_DIR` - Chemin conforme à la spécification XDG Base Directory
 3. `$HOME/bin` - Répertoire binaire utilisateur standard (s'il existe ou peut être créé)
-4. `$HOME/.opencode/bin` - Repli par défaut
+4. `$HOME/.crokcode/bin` - Repli par défaut
 
 ```bash
 # Exemples
@@ -99,7 +99,7 @@ XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 
 ### Agents
 
-OpenCode inclut deux agents intégrés que vous pouvez basculer avec la touche `Tab`.
+CrokCode inclut deux agents intégrés que vous pouvez basculer avec la touche `Tab`.
 
 - **build** - Par défaut, agent avec accès complet pour le travail de développement
 - **plan** - Agent en lecture seule pour l'analyse et l'exploration du code
@@ -114,15 +114,15 @@ En savoir plus sur les [agents](https://opencode.ai/docs/agents).
 
 ### Documentation
 
-Pour plus d'informations sur la configuration d'OpenCode, [**consultez notre documentation**](https://opencode.ai/docs).
+Pour plus d'informations sur la configuration d'CrokCode, [**consultez notre documentation**](https://opencode.ai/docs).
 
 ### Contribuer
 
-Si vous souhaitez contribuer à OpenCode, lisez nos [docs de contribution](./CONTRIBUTING.md) avant de soumettre une pull request.
+Si vous souhaitez contribuer à CrokCode, lisez nos [docs de contribution](./CONTRIBUTING.md) avant de soumettre une pull request.
 
-### Construire avec OpenCode
+### Construire avec CrokCode
 
-Si vous travaillez sur un projet lié à OpenCode et que vous utilisez "opencode" dans le nom du projet (par exemple, "opencode-dashboard" ou "opencode-mobile"), ajoutez une note dans votre README pour préciser qu'il n'est pas construit par l'équipe OpenCode et qu'il n'est pas affilié à nous.
+Si vous travaillez sur un projet lié à CrokCode et que vous utilisez "crokcode" dans le nom du projet (par exemple, "crokcode-dashboard" ou "crokcode-mobile"), ajoutez une note dans votre README pour préciser qu'il n'est pas construit par l'équipe CrokCode et qu'il n'est pas affilié à nous.
 
 ---
 

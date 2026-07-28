@@ -27,13 +27,13 @@ if (values.help) {
   console.log(`
 Usage: bun script/changelog.ts [options]
 
-Generates UPCOMING_CHANGELOG.md by running the opencode changelog command.
+Generates UPCOMING_CHANGELOG.md by running the crokcode changelog command.
 
 Options:
   -f, --from <version>   Starting version (default: latest non-draft GitHub release)
   -t, --to <ref>         Ending ref (default: HEAD)
-      --variant <name>   Thinking variant for opencode run (default: low)
-      --quiet            Suppress opencode command output unless it fails
+      --variant <name>   Thinking variant for crokcode run (default: low)
+      --quiet            Suppress crokcode command output unless it fails
       --print            Print the generated UPCOMING_CHANGELOG.md after success
   -h, --help             Show this help message
 

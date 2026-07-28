@@ -9,18 +9,15 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-// Price ids + coupon come from env so switching TEST -> LIVE is just setting
-// secrets (STRIPE_PRICE_CROKGO / _CROKPRO / _PAYG, STRIPE_COUPON_CROKGO), no
-// redeploy. Defaults are the current test-mode objects.
-// coupon: first-invoice-only discount (Stripe duration "once"). CrokGo is
-// $10/mo with 50% off the first month = $5 first month, $10 thereafter.
+// Price ids come from env so switching TEST -> LIVE is just setting secrets
+// (STRIPE_PRICE_CROKGO / _CROKPRO / _PAYG), no redeploy. Defaults are the
+// current test-mode objects.
+// CrokGo's first-month discount is a customer-entered promo code (see
+// allow_promotion_codes below), not an auto-applied coupon, so no coupon id
+// is configured here.
 const env = (k: string, fallback: string) => Deno.env.get(k) ?? fallback
-const PRICES: Record<string, { price: string; mode: "subscription" | "payment"; coupon?: string }> = {
-  crokgo: {
-    price: env("STRIPE_PRICE_CROKGO", "price_1Tw8nNFqcQDpQanawhK8CWrq"),
-    mode: "subscription",
-    coupon: env("STRIPE_COUPON_CROKGO", "sGlKPqwr"),
-  },
+const PRICES: Record<string, { price: string; mode: "subscription" | "payment" }> = {
+  crokgo: { price: env("STRIPE_PRICE_CROKGO", "price_1Tw8nNFqcQDpQanawhK8CWrq"), mode: "subscription" },
   crokpro: { price: env("STRIPE_PRICE_CROKPRO", "price_1TvhxiFqcQDpQanaxdA1phYl"), mode: "subscription" },
   "crok-as-you-go": { price: env("STRIPE_PRICE_PAYG", "price_1TvhyNFqcQDpQanaCDRnJsQS"), mode: "payment" },
 }
@@ -42,6 +39,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405)
 
+  try {
+    return await handle(req)
+  } catch (err) {
+    // A raw throw here would otherwise surface as an opaque 500 with no body
+    // (e.g. a customer id saved under test mode no longer existing once the
+    // secret key switches to live) — always return a readable message instead.
+    const message = err instanceof Stripe.errors.StripeError ? err.message : "Checkout failed. Please try again."
+    return json({ error: message }, 500)
+  }
+})
+
+async function handle(req: Request): Promise<Response> {
   const auth = req.headers.get("authorization") ?? ""
   if (!auth.toLowerCase().startsWith("bearer ")) return json({ error: "Not signed in" }, 401)
   const token = auth.slice(7).trim()
@@ -59,8 +68,15 @@ Deno.serve(async (req) => {
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
   const profile = await admin.from("profiles").select("stripe_customer_id").eq("id", user.id).maybeSingle()
 
-  // Reuse the customer so subscriptions and top-ups land on one account.
+  // Reuse the customer so subscriptions and top-ups land on one account. The
+  // stored id may belong to a different Stripe mode than the current secret
+  // key (e.g. saved under test, now running live) — verify it still resolves
+  // before trusting it, and mint a fresh customer if it doesn't.
   let customerId = profile.data?.stripe_customer_id as string | undefined
+  if (customerId) {
+    const existing = await stripe.customers.retrieve(customerId).catch(() => undefined)
+    if (!existing || existing.deleted) customerId = undefined
+  }
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email ?? undefined,
@@ -121,10 +137,13 @@ Deno.serve(async (req) => {
     line_items: [lineItem],
     // Save the card on top-ups so Crok-as-you-go auto top-up can charge off-session.
     ...(selected.mode === "payment" ? { payment_intent_data: { setup_future_usage: "off_session" } } : {}),
-    ...(selected.coupon ? { discounts: [{ coupon: selected.coupon }] } : {}),
+    // Subscriptions: show Stripe's "Add promotion code" field so users can redeem
+    // a code (e.g. CROKGO50 for the first month). Mutually exclusive with an
+    // auto-applied discount, so we no longer force `discounts` here.
+    ...(selected.mode === "subscription" ? { allow_promotion_codes: true } : {}),
     success_url: (body.success_url as string) ?? `${origin}/billing?status=success`,
     cancel_url: (body.cancel_url as string) ?? `${origin}/billing?status=cancelled`,
   })
 
   return json({ url: session.url })
-})
+}

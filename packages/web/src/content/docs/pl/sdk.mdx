@@ -1,13 +1,13 @@
 ---
 title: SDK
-description: Typowany klient JS dla serwera OpenCode.
+description: Typowany klient JS dla serwera CrokCode.
 ---
 
 import config from "../../../../config.mjs"
 export const typesUrl = `${config.github}/blob/dev/packages/sdk/js/src/gen/types.gen.ts`
 
-Pakiet SDK JS/TS OpenCode zapewnia klienta z bezpiecznym typowaniem (type-safe) do interakcji z serwerem.
-Użyj go do budowania integracji i programowej kontroli OpenCode.
+Pakiet SDK JS/TS CrokCode zapewnia klienta z bezpiecznym typowaniem (type-safe) do interakcji z serwerem.
+Użyj go do budowania integracji i programowej kontroli CrokCode.
 
 [Dowiedz się więcej](/docs/server) o działaniu serwera. Przykłady znajdziesz w [projektach](/docs/ecosystem#projects) stworzonych przez społeczność.
 
@@ -25,12 +25,12 @@ npm install @crokcode/sdk
 
 ## Tworzenie klienta
 
-Utwórz instancję OpenCode:
+Utwórz instancję CrokCode:
 
 ```javascript
-import { createOpencode } from "@crokcode/sdk"
+import { createCrokcode } from "@crokcode/sdk"
 
-const { client } = await createOpencode()
+const { client } = await createCrokcode()
 ```
 
 Spowoduje to uruchomienie zarówno serwera, jak i klienta.
@@ -49,12 +49,12 @@ Spowoduje to uruchomienie zarówno serwera, jak i klienta.
 
 ## Konfiguracja
 
-Można przekazać obiekt konfiguracyjny, aby dostosować zachowanie. Instancja nadal pobiera `opencode.json`, ale możesz zastąpić lub dodać konfigurację bezpośrednio:
+Można przekazać obiekt konfiguracyjny, aby dostosować zachowanie. Instancja nadal pobiera `crokcode.json`, ale możesz zastąpić lub dodać konfigurację bezpośrednio:
 
 ```javascript
-import { createOpencode } from "@crokcode/sdk"
+import { createCrokcode } from "@crokcode/sdk"
 
-const opencode = await createOpencode({
+const crokcode = await createCrokcode({
   hostname: "127.0.0.1",
   port: 4096,
   config: {
@@ -62,19 +62,19 @@ const opencode = await createOpencode({
   },
 })
 
-console.log(`Server running at ${opencode.server.url}`)
+console.log(`Server running at ${crokcode.server.url}`)
 
-opencode.server.close()
+crokcode.server.close()
 ```
 
 ## Tylko klient
 
-Jeśli masz już działającą instancję OpenCode, możesz utworzyć instancję klienta, aby się z nią połączyć:
+Jeśli masz już działającą instancję CrokCode, możesz utworzyć instancję klienta, aby się z nią połączyć:
 
 ```javascript
-import { createOpencodeClient } from "@crokcode/sdk"
+import { createCrokcodeClient } from "@crokcode/sdk"
 
-const client = createOpencodeClient({
+const client = createCrokcodeClient({
   baseUrl: "http://localhost:4096",
 })
 ```
@@ -376,7 +376,7 @@ await client.session.prompt({
 ```javascript
 // Search and read files
 const textResults = await client.find.text({
-  query: { pattern: "function.*opencode" },
+  query: { pattern: "function.*crokcode" },
 })
 
 const files = await client.find.files({

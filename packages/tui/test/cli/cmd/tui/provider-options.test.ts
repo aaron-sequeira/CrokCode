@@ -35,7 +35,7 @@ describe("providerOptions", () => {
       "aws",
       "mistral",
       "custom-z",
-      "__opencode_custom_provider__",
+      "__crokcode_custom_provider__",
     ])
   })
 

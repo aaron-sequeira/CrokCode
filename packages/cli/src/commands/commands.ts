@@ -3,8 +3,8 @@ import { Spec } from "../framework/spec"
 
 declare const CROKCODE_CLI_NAME: string | undefined
 
-export const Commands = Spec.make(typeof CROKCODE_CLI_NAME === "string" ? CROKCODE_CLI_NAME : "opencode", {
-  description: "OpenCode 2.0 preview command line interface",
+export const Commands = Spec.make(typeof CROKCODE_CLI_NAME === "string" ? CROKCODE_CLI_NAME : "crokcode", {
+  description: "CrokCode 2.0 preview command line interface",
   commands: [
     Spec.make("api", {
       description: "Make a request to the running server",

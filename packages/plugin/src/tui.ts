@@ -1,6 +1,6 @@
 import type {
   AgentPart,
-  OpencodeClient,
+  CrokcodeClient,
   Event,
   FilePart,
   LspStatus,
@@ -611,7 +611,7 @@ export type TuiPluginApi = {
   kv: TuiKV
   state: TuiState
   theme: TuiTheme
-  client: OpencodeClient
+  client: CrokcodeClient
   event: TuiEventBus
   renderer: CliRenderer
   slots: TuiSlots

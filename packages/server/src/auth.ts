@@ -17,7 +17,7 @@ export type Info = {
   readonly username: string
 }
 
-export class Config extends Context.Service<Config, Info>()("@opencode/ServerAuthConfig") {
+export class Config extends Context.Service<Config, Info>()("@crokcode/ServerAuthConfig") {
   static configLayer(input: Info) {
     return Layer.succeed(this, this.of(input))
   }
@@ -53,7 +53,7 @@ export function header(credentials?: Credentials) {
   const password = credentials?.password ?? process.env.CROKCODE_SERVER_PASSWORD
   if (!password) return undefined
 
-  return `Basic ${Buffer.from(`${credentials?.username ?? process.env.CROKCODE_SERVER_USERNAME ?? "opencode"}:${password}`).toString("base64")}`
+  return `Basic ${Buffer.from(`${credentials?.username ?? process.env.CROKCODE_SERVER_USERNAME ?? "crokcode"}:${password}`).toString("base64")}`
 }
 
 export function headers(credentials?: Credentials) {

@@ -46,10 +46,10 @@ jobs:
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
-      - name: Install OpenCode
+      - name: Install CrokCode
         if: inputs.bump || inputs.version
         run: bun i -g opencode-ai
 
@@ -61,7 +61,7 @@ jobs:
           CROKCODE_BUMP: ${{ inputs.bump }}
           CROKCODE_VERSION: ${{ inputs.version }}
           CROKCODE_API_KEY: ${{ secrets.CROKCODE_API_KEY }}
-          GH_REPO: ${{ (github.ref_name == 'beta' && 'anomalyco/opencode-beta') || github.repository }}
+          GH_REPO: ${{ (github.ref_name == 'beta' && 'anomalyco/crokcode-beta') || github.repository }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.version.outputs.release }}
@@ -83,13 +83,13 @@ jobs:
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
       - name: Build
         id: build
         run: |
-          ./packages/opencode/script/build.ts ${{ (github.ref_name == 'beta' && '--sourcemaps') || '' }}
+          ./packages/crokcode/script/build.ts ${{ (github.ref_name == 'beta' && '--sourcemaps') || '' }}
           ./packages/cli/script/build.ts ${{ (github.ref_name == 'beta' && '--sourcemaps') || '' }}
         env:
           CROKCODE_VERSION: ${{ needs.version.outputs.version }}
@@ -101,17 +101,17 @@ jobs:
         with:
           name: opencode-cli
           path: |
-            packages/opencode/dist/opencode-darwin*
-            packages/opencode/dist/opencode-linux*
+            packages/crokcode/dist/crokcode-darwin*
+            packages/crokcode/dist/crokcode-linux*
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: opencode-cli-windows
-          path: packages/opencode/dist/opencode-windows*
+          name: crokcode-cli-windows
+          path: packages/crokcode/dist/crokcode-windows*
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: opencode-preview-cli
+          name: crokcode-preview-cli
           path: packages/cli/dist/cli-*
 
     outputs:
@@ -135,15 +135,15 @@ jobs:
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: opencode-cli-windows
-          path: packages/opencode/dist
+          name: crokcode-cli-windows
+          path: packages/crokcode/dist
 
       - name: Setup git committer
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
       - name: Azure login
         uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
@@ -158,9 +158,9 @@ jobs:
           signing-account-name: ${{ env.AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
           certificate-profile-name: ${{ env.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE }}
           files: |
-            ${{ github.workspace }}\packages\opencode\dist\opencode-windows-arm64\bin\opencode.exe
-            ${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64\bin\opencode.exe
-            ${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64-baseline\bin\opencode.exe
+            ${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-arm64\bin\crokcode.exe
+            ${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64\bin\crokcode.exe
+            ${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64-baseline\bin\crokcode.exe
           exclude-environment-credential: true
           exclude-workload-identity-credential: true
           exclude-managed-identity-credential: true
@@ -176,9 +176,9 @@ jobs:
         shell: pwsh
         run: |
           $files = @(
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-arm64\bin\opencode.exe",
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64\bin\opencode.exe",
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64-baseline\bin\opencode.exe"
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-arm64\bin\crokcode.exe",
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64\bin\crokcode.exe",
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64-baseline\bin\crokcode.exe"
           )
 
           foreach ($file in $files) {
@@ -189,12 +189,12 @@ jobs:
           }
 
       - name: Repack Windows CLI archives
-        working-directory: packages/opencode/dist
+        working-directory: packages/crokcode/dist
         shell: pwsh
         run: |
-          Compress-Archive -Path "opencode-windows-arm64\bin\*" -DestinationPath "opencode-windows-arm64.zip" -Force
-          Compress-Archive -Path "opencode-windows-x64\bin\*" -DestinationPath "opencode-windows-x64.zip" -Force
-          Compress-Archive -Path "opencode-windows-x64-baseline\bin\*" -DestinationPath "opencode-windows-x64-baseline.zip" -Force
+          Compress-Archive -Path "crokcode-windows-arm64\bin\*" -DestinationPath "crokcode-windows-arm64.zip" -Force
+          Compress-Archive -Path "crokcode-windows-x64\bin\*" -DestinationPath "crokcode-windows-x64.zip" -Force
+          Compress-Archive -Path "crokcode-windows-x64-baseline\bin\*" -DestinationPath "crokcode-windows-x64-baseline.zip" -Force
 
       - name: Upload signed Windows CLI release assets
         if: needs.version.outputs.release != ''
@@ -203,19 +203,19 @@ jobs:
           GH_TOKEN: ${{ steps.committer.outputs.token }}
         run: |
           gh release upload "v${{ needs.version.outputs.version }}" `
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-arm64.zip" `
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64.zip" `
-            "${{ github.workspace }}\packages\opencode\dist\opencode-windows-x64-baseline.zip" `
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-arm64.zip" `
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64.zip" `
+            "${{ github.workspace }}\packages\crokcode\dist\crokcode-windows-x64-baseline.zip" `
             --clobber `
             --repo "${{ needs.version.outputs.repo }}"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: opencode-cli-signed-windows
+          name: crokcode-cli-signed-windows
           path: |
-            packages/opencode/dist/opencode-windows-arm64
-            packages/opencode/dist/opencode-windows-x64
-            packages/opencode/dist/opencode-windows-x64-baseline
+            packages/crokcode/dist/crokcode-windows-arm64
+            packages/crokcode/dist/crokcode-windows-x64
+            packages/crokcode/dist/crokcode-windows-x64-baseline
 
   build-electron:
     needs:
@@ -307,8 +307,8 @@ jobs:
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
       - name: Prepare
         run: bun ./scripts/prepare.ts
@@ -316,7 +316,7 @@ jobs:
         env:
           CROKCODE_VERSION: ${{ needs.version.outputs.version }}
           CROKCODE_CHANNEL: ${{ (github.ref_name == 'beta' && 'beta') || 'prod' }}
-          CROKCODE_CLI_ARTIFACT: ${{ (runner.os == 'Windows' && 'opencode-cli-windows') || 'opencode-cli' }}
+          CROKCODE_CLI_ARTIFACT: ${{ (runner.os == 'Windows' && 'crokcode-cli-windows') || 'opencode-cli' }}
           RUST_TARGET: ${{ matrix.settings.target }}
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -363,10 +363,10 @@ jobs:
         run: |
           if [[ "${{ matrix.settings.target }}" == "x86_64-apple-darwin" ]]; then
             APP_DIR="mac"
-            OUT_NAME="opencode-desktop-mac-x64.app.tar.gz"
+            OUT_NAME="crokcode-desktop-mac-x64.app.tar.gz"
           elif [[ "${{ matrix.settings.target }}" == "aarch64-apple-darwin" ]]; then
             APP_DIR="mac-arm64"
-            OUT_NAME="opencode-desktop-mac-arm64.app.tar.gz"
+            OUT_NAME="crokcode-desktop-mac-arm64.app.tar.gz"
           else
             echo "Unknown macOS target: ${{ matrix.settings.target }}"
             exit 1
@@ -396,7 +396,7 @@ jobs:
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: opencode-desktop-${{ matrix.settings.target }}
+          name: crokcode-desktop-${{ matrix.settings.target }}
           path: packages/desktop/dist/*
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -439,21 +439,21 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: opencode-cli
-          path: packages/opencode/dist
+          path: packages/crokcode/dist
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: opencode-cli-windows
-          path: packages/opencode/dist
+          name: crokcode-cli-windows
+          path: packages/crokcode/dist
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: opencode-cli-signed-windows
-          path: packages/opencode/dist
+          name: crokcode-cli-signed-windows
+          path: packages/crokcode/dist
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: opencode-preview-cli
+          name: crokcode-preview-cli
           path: packages/cli/dist
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -465,7 +465,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         if: needs.version.outputs.release
         with:
-          pattern: opencode-desktop-*
+          pattern: crokcode-desktop-*
           path: /tmp/desktop
           merge-multiple: true
 
@@ -473,8 +473,8 @@ jobs:
         id: committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
       - name: Cache apt packages (AUR)
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -491,8 +491,8 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.AUR_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          git config --global user.email "opencode@sst.dev"
-          git config --global user.name "opencode"
+          git config --global user.email "crokcode@sst.dev"
+          git config --global user.name "crokcode"
           ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts || true
 
       - name: Upload desktop release assets

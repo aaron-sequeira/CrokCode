@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=CrokCode
+Exec=/opt/CrokCode/ai.crokcode.desktop %U
+Terminal=false
+Type=Application
+Icon=ai.crokcode.desktop
+StartupWMClass=ai.crokcode.desktop
+NoDisplay=true
+Comment=Open source AI coding agent
+Categories=Development;

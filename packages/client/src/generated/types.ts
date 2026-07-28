@@ -1,4 +1,4 @@
-import type { OpenCodeEventEncoded } from "@crokcode/protocol/groups/event"
+import type { CrokCodeEventEncoded } from "@crokcode/protocol/groups/event"
 
 export type JsonValue =
   | null
@@ -2538,7 +2538,7 @@ export type SkillsListOutput = {
   }>
 }
 
-export type EventsSubscribeOutput = OpenCodeEventEncoded
+export type EventsSubscribeOutput = CrokCodeEventEncoded
 
 export type PtysListInput = {
   readonly location?: {

@@ -105,10 +105,10 @@ export async function handler(
     const ip = rawIp.includes(":") ? rawIp.split(":").slice(0, 4).join(":") : rawIp
     const rawZenApiKey = opts.parseApiKey(input.request.headers)
     const zenApiKey = rawZenApiKey === "public" ? undefined : rawZenApiKey
-    const sessionId = input.request.headers.get("x-opencode-session") ?? ""
-    const requestId = input.request.headers.get("x-opencode-request") ?? ""
-    const ocClient = input.request.headers.get("x-opencode-client") ?? ""
-    const projectId = input.request.headers.get("x-opencode-project") ?? ""
+    const sessionId = input.request.headers.get("x-crokcode-session") ?? ""
+    const requestId = input.request.headers.get("x-crokcode-request") ?? ""
+    const ocClient = input.request.headers.get("x-crokcode-client") ?? ""
+    const projectId = input.request.headers.get("x-crokcode-project") ?? ""
     const userAgent = input.request.headers.get("user-agent") ?? ""
     logger.metric({
       is_stream: isStream,
@@ -235,10 +235,10 @@ export async function handler(
             })
             headers.delete("host")
             headers.delete("content-length")
-            headers.delete("x-opencode-request")
-            headers.delete("x-opencode-session")
-            headers.delete("x-opencode-project")
-            headers.delete("x-opencode-client")
+            headers.delete("x-crokcode-request")
+            headers.delete("x-crokcode-session")
+            headers.delete("x-crokcode-project")
+            headers.delete("x-crokcode-client")
             return headers
           })(),
           body: reqBody,
@@ -250,8 +250,8 @@ export async function handler(
       )
 
       if (isNewInference) {
-        const resEndpointId = res.headers.get("x-opencode-endpoint-id")
-        const resEndpointModelId = res.headers.get("x-opencode-upstream-model-id")
+        const resEndpointId = res.headers.get("x-crokcode-endpoint-id")
+        const resEndpointModelId = res.headers.get("x-crokcode-upstream-model-id")
         if (resEndpointId && resEndpointModelId)
           logger.metric({
             provider: resEndpointId,

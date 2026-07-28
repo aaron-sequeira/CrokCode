@@ -3,7 +3,7 @@ import { defineConfig } from "electron-vite"
 import appPlugin from "@crokcode/app/vite"
 import * as fs from "node:fs/promises"
 
-const CROKCODE_SERVER_DIST = "../opencode/dist/node"
+const CROKCODE_SERVER_DIST = "../crokcode/dist/node"
 
 const channel = (() => {
   const raw = process.env.CROKCODE_CHANNEL
@@ -55,21 +55,21 @@ const require = __cjs_mod__.createRequire(import.meta.url);
     },
     plugins: [
       {
-        name: "opencode:node-pty-narrower",
+        name: "crokcode:node-pty-narrower",
         enforce: "pre",
         resolveId(s) {
           if (s === "@lydell/node-pty") return nodePtyPkg
         },
       },
       {
-        name: "opencode:virtual-server-module",
+        name: "crokcode:virtual-server-module",
         enforce: "pre",
         resolveId(id) {
-          if (id === "virtual:opencode-server") return this.resolve(`${CROKCODE_SERVER_DIST}/node.js`)
+          if (id === "virtual:crokcode-server") return this.resolve(`${CROKCODE_SERVER_DIST}/node.js`)
         },
       },
       {
-        name: "opencode:copy-server-assets",
+        name: "crokcode:copy-server-assets",
         async writeBundle() {
           for (const l of await fs.readdir(CROKCODE_SERVER_DIST)) {
             if (!l.endsWith(".wasm")) continue

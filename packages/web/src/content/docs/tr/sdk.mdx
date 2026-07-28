@@ -1,13 +1,13 @@
 ---
 title: SDK
-description: opencode sunucusu için type-safe JS istemcisi.
+description: crokcode sunucusu için type-safe JS istemcisi.
 ---
 
 import config from "../../../../config.mjs"
 export const typesUrl = `${config.github}/blob/dev/packages/sdk/js/src/gen/types.gen.ts`
 
-opencode JS/TS SDK, sunucu ile etkileşmek için type-safe bir istemci sağlar.
-opencode'u programatik olarak kontrol etmek ve entegrasyonlar oluşturmak için kullanabilirsiniz.
+crokcode JS/TS SDK, sunucu ile etkileşmek için type-safe bir istemci sağlar.
+crokcode'u programatik olarak kontrol etmek ve entegrasyonlar oluşturmak için kullanabilirsiniz.
 
 [Sunucu](/docs/server) sayfasında nasıl çalıştığını görebilir, örnekler için topluluğun oluşturduğu [projeler](/docs/ecosystem#projects) bölümüne bakabilirsiniz.
 
@@ -25,12 +25,12 @@ npm install @crokcode/sdk
 
 ## İstemci Oluşturma
 
-Bir opencode örneği oluşturun:
+Bir crokcode örneği oluşturun:
 
 ```javascript
-import { createOpencode } from "@crokcode/sdk"
+import { createCrokcode } from "@crokcode/sdk"
 
-const { client } = await createOpencode()
+const { client } = await createCrokcode()
 ```
 
 Bu, hem bir sunucu hem de bir istemci başlatır
@@ -49,12 +49,12 @@ Bu, hem bir sunucu hem de bir istemci başlatır
 
 ## Yapılandırma
 
-Davranışı özelleştirmek için bir yapılandırma nesnesi iletebilirsiniz. Örnek yine de `opencode.json` dosyanızı alır, ancak yapılandırmayı satır içi olarak geçersiz kılabilir veya ekleyebilirsiniz:
+Davranışı özelleştirmek için bir yapılandırma nesnesi iletebilirsiniz. Örnek yine de `crokcode.json` dosyanızı alır, ancak yapılandırmayı satır içi olarak geçersiz kılabilir veya ekleyebilirsiniz:
 
 ```javascript
-import { createOpencode } from "@crokcode/sdk"
+import { createCrokcode } from "@crokcode/sdk"
 
-const opencode = await createOpencode({
+const crokcode = await createCrokcode({
   hostname: "127.0.0.1",
   port: 4096,
   config: {
@@ -62,19 +62,19 @@ const opencode = await createOpencode({
   },
 })
 
-console.log(`Server running at ${opencode.server.url}`)
+console.log(`Server running at ${crokcode.server.url}`)
 
-opencode.server.close()
+crokcode.server.close()
 ```
 
 ## Yalnızca istemci
 
-Halihazırda çalışan bir opencode örneğiniz varsa, ona bağlanmak için bir istemci örneği oluşturabilirsiniz:
+Halihazırda çalışan bir crokcode örneğiniz varsa, ona bağlanmak için bir istemci örneği oluşturabilirsiniz:
 
 ```javascript
-import { createOpencodeClient } from "@crokcode/sdk"
+import { createCrokcodeClient } from "@crokcode/sdk"
 
-const client = createOpencodeClient({
+const client = createCrokcodeClient({
   baseUrl: "http://localhost:4096",
 })
 ```
@@ -376,7 +376,7 @@ await client.session.prompt({
 ```javascript
 // Search and read files
 const textResults = await client.find.text({
-  query: { pattern: "function.*opencode" },
+  query: { pattern: "function.*crokcode" },
 })
 
 const files = await client.find.files({

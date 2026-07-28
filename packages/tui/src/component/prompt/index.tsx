@@ -10,7 +10,7 @@ import {
 } from "@opentui/core"
 import type { CommandContext } from "@opentui/keymap"
 import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
-import { registerOpencodeSpinner } from "../register-spinner"
+import { registerCrokcodeSpinner } from "../register-spinner"
 import path from "path"
 import { fileURLToPath } from "url"
 import { useLocal } from "../../context/local"
@@ -51,14 +51,14 @@ import { createFadeIn } from "../../util/signal"
 import { DialogSkill } from "../dialog-skill"
 import { DialogWorkspaceUnavailable } from "../dialog-workspace-unavailable"
 import { useArgs } from "../../context/args"
-import { CROKCODE_BASE_MODE, useBindings, useCommandShortcut, useLeaderActive, useOpencodeKeymap } from "../../keymap"
+import { CROKCODE_BASE_MODE, useBindings, useCommandShortcut, useLeaderActive, useCrokcodeKeymap } from "../../keymap"
 import { useTuiConfig } from "../../config"
 import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
 import { useLocation } from "../../context/location"
 
-registerOpencodeSpinner()
+registerCrokcodeSpinner()
 
 export type PromptProps = {
   sessionID?: string
@@ -165,7 +165,7 @@ export function Prompt(props: PromptProps) {
   const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
   const history = usePromptHistory()
   const stash = usePromptStash()
-  const keymap = useOpencodeKeymap()
+  const keymap = useCrokcodeKeymap()
   const agentShortcut = useCommandShortcut("agent.cycle")
   const paletteShortcut = useCommandShortcut("command.palette.show")
   const renderer = useRenderer()
@@ -376,6 +376,7 @@ export function Prompt(props: PromptProps) {
         run: async (ctx: CommandContext<Renderable, KeyEvent>) => {
           ctx.event.preventDefault()
           ctx.event.stopPropagation()
+          if (expandPastedPlaceholderAtCursor()) return
           const content = await clipboard.read?.()
           if (content?.mime.startsWith("image/")) {
             await pasteAttachment({
@@ -1144,6 +1145,29 @@ export function Prompt(props: PromptProps) {
     }
     input.clear()
     if (finishMoveProgress) move.finishSubmit()
+    return true
+  }
+
+  function expandPastedPlaceholderAtCursor(): boolean {
+    if (!input || input.isDestroyed) return false
+    const cursor = input.cursorOffset
+    const extmarks = input.extmarks.getAllForTypeId(promptPartTypeId)
+    const hit = extmarks.find((m) => cursor >= m.start && cursor <= m.end)
+    if (!hit) return false
+    const partIndex = store.extmarkToPartIndex.get(hit.id)
+    if (partIndex === undefined) return false
+    const part = store.prompt.parts[partIndex]
+    if (!part || part.type !== "text" || !part.source?.text) return false
+    if (!part.source.text.value.startsWith("[Pasted ~")) return false
+
+    const startPos = input.editBuffer.offsetToPosition(hit.start)
+    const endPos = input.editBuffer.offsetToPosition(hit.end)
+    if (!startPos || !endPos) return false
+    input.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
+    input.cursorOffset = hit.start
+    input.insertText(part.text)
+    input.extmarks.delete(hit.id)
+    syncExtmarksWithPromptParts()
     return true
   }
 

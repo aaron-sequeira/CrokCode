@@ -281,7 +281,7 @@ import { expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui"
 import { TestTuiContexts } from "../../fixture/tui-environment"
-import { OpencodeKeymapProvider, registerOpencodeKeymap } from "../../../src/keymap"
+import { CrokcodeKeymapProvider, registerCrokcodeKeymap } from "../../../src/keymap"
 import { TuiConfigProvider } from "../../../src/config"
 import { KVProvider } from "../../../src/context/kv"
 import { ThemeProvider } from "../../../src/context/theme"
@@ -299,10 +299,10 @@ test("renders and selects every update action", async () => {
   function Root() {
     const renderer = useRenderer()
     const keymap = createDefaultOpenTuiKeymap(renderer)
-    registerOpencodeKeymap(keymap, renderer, config)
+    registerCrokcodeKeymap(keymap, renderer, config)
     return (
       <TestTuiContexts>
-        <OpencodeKeymapProvider keymap={keymap}>
+        <CrokcodeKeymapProvider keymap={keymap}>
           <TuiConfigProvider config={config}>
             <KVProvider>
               <ThemeProvider mode="dark">
@@ -316,7 +316,7 @@ test("renders and selects every update action", async () => {
               </ThemeProvider>
             </KVProvider>
           </TuiConfigProvider>
-        </OpencodeKeymapProvider>
+        </CrokcodeKeymapProvider>
       </TestTuiContexts>
     )
   }
@@ -511,7 +511,7 @@ Change the build step to:
 
 ```yaml
       - name: Build crokcode
-        working-directory: packages/opencode
+        working-directory: packages/crokcode
         env:
           CROKCODE_CHANNEL: latest
           CROKCODE_VERSION: ${{ steps.version.outputs.version }}
@@ -530,7 +530,7 @@ Expected: exit 0.
 
 - [ ] **Step 4: Build a local release-version binary**
 
-Run from `packages/opencode`:
+Run from `packages/crokcode`:
 
 ```powershell
 $env:CROKCODE_CHANNEL='latest'
@@ -575,9 +575,9 @@ bun typecheck
 
 Expected: both commands exit 0.
 
-- [ ] **Step 3: Run opencode typecheck and relevant installation tests**
+- [ ] **Step 3: Run crokcode typecheck and relevant installation tests**
 
-Run from `packages/opencode`:
+Run from `packages/crokcode`:
 
 ```powershell
 bun test test/installation/installation.test.ts test/server/httpapi-global.test.ts

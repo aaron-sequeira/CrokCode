@@ -1,9 +1,9 @@
 import { base64Encode } from "@crokcode/core/util/encode"
 import { expect, test, type Page } from "@playwright/test"
-import { mockOpenCodeServer } from "../utils/mock-server"
+import { mockCrokCodeServer } from "../utils/mock-server"
 import { expectSessionTitle } from "../utils/waits"
 
-const directory = "C:/OpenCode/TerminalTabSwitch"
+const directory = "C:/CrokCode/TerminalTabSwitch"
 const projectID = "proj_terminal_tab_switch"
 const sessionA = "ses_terminal_tab_a"
 const sessionB = "ses_terminal_tab_b"
@@ -61,7 +61,7 @@ async function readProbe(page: Page) {
 }
 
 async function setup(page: Page) {
-  await mockOpenCodeServer(page, {
+  await mockCrokCodeServer(page, {
     directory,
     project: {
       id: projectID,
@@ -75,7 +75,7 @@ async function setup(page: Page) {
       all: [
         {
           id: "opencode",
-          name: "OpenCode",
+          name: "CrokCode",
           models: { test: { id: "test", name: "Test", limit: { context: 200_000 } } },
         },
       ],
@@ -112,14 +112,14 @@ async function setup(page: Page) {
     ({ directory, server, sessions }) => {
       localStorage.setItem("settings.v3", JSON.stringify({ general: { newLayoutDesigns: true } }))
       localStorage.setItem(
-        "opencode.global.dat:server",
+        "crokcode.global.dat:server",
         JSON.stringify({
           projects: { local: [{ worktree: directory, expanded: true }] },
           lastProject: { local: directory },
         }),
       )
       localStorage.setItem(
-        "opencode.window.browser.dat:tabs",
+        "crokcode.window.browser.dat:tabs",
         JSON.stringify(sessions.map((sessionId: string) => ({ type: "session", server, sessionId }))),
       )
     },

@@ -55,7 +55,7 @@ jobs:
         run: bun install
 
       - name: Build crokcode
-        working-directory: packages/opencode
+        working-directory: packages/crokcode
         env:
           CROKCODE_CHANNEL: latest
           CROKCODE_VERSION: ${{ steps.version.outputs.version }}
@@ -63,17 +63,17 @@ jobs:
 
       - name: Archive (tar.gz)
         if: matrix.ext == 'tar.gz'
-        working-directory: packages/opencode/dist/crokcode-${{ matrix.target }}
+        working-directory: packages/crokcode/dist/crokcode-${{ matrix.target }}
         run: tar -czf "$GITHUB_WORKSPACE/crokcode-${{ matrix.target }}.tar.gz" bin
 
       - name: Archive (zip, unix)
         if: matrix.ext == 'zip' && runner.os != 'Windows'
-        working-directory: packages/opencode/dist/crokcode-${{ matrix.target }}
+        working-directory: packages/crokcode/dist/crokcode-${{ matrix.target }}
         run: zip -r "$GITHUB_WORKSPACE/crokcode-${{ matrix.target }}.zip" bin
 
       - name: Archive (zip, windows)
         if: runner.os == 'Windows'
-        working-directory: packages/opencode/dist/crokcode-${{ matrix.target }}
+        working-directory: packages/crokcode/dist/crokcode-${{ matrix.target }}
         run: Compress-Archive -Path bin -DestinationPath "$env:GITHUB_WORKSPACE/crokcode-${{ matrix.target }}.zip"
 
       - name: Upload to release

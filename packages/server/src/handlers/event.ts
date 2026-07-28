@@ -1,5 +1,5 @@
 import { EventV2 } from "@crokcode/core/event"
-import { OpenCodeEvent } from "@crokcode/protocol/groups/event"
+import { CrokCodeEvent } from "@crokcode/protocol/groups/event"
 import { Effect, Schema, Stream } from "effect"
 import { HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
@@ -13,7 +13,7 @@ function eventData(data: unknown): Sse.Event {
     _tag: "Event",
     event: "message",
     id: undefined,
-    data: JSON.stringify(Schema.encodeUnknownSync(OpenCodeEvent)(data)),
+    data: JSON.stringify(Schema.encodeUnknownSync(CrokCodeEvent)(data)),
   }
 }
 

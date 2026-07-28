@@ -61,7 +61,7 @@ Committed smoke and regression tests continue to own correctness coverage for pa
 Set `CROKCODE_PERFORMANCE_TRACE_DIR` to emit a standard Chrome DevTools trace for every benchmark page automatically:
 
 ```sh
-CROKCODE_PERFORMANCE_TRACE_DIR=/tmp/opencode-performance-traces \
+CROKCODE_PERFORMANCE_TRACE_DIR=/tmp/crokcode-performance-traces \
 bunx playwright test --config e2e/performance/playwright.config.ts \
   timeline/session-tab-switch-benchmark.spec.ts
 ```

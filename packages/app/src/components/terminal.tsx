@@ -181,7 +181,7 @@ export const Terminal = (props: TerminalProps) => {
   const client = sdk().client
   const url = sdk().url
   const auth = connection.http
-  const username = auth?.username ?? "opencode"
+  const username = auth?.username ?? "crokcode"
   const password = auth?.password ?? ""
   const authToken = connection.type === "http" ? connection.authToken : false
   const sameOrigin = new URL(url, location.href).origin === location.origin
@@ -529,7 +529,7 @@ export const Terminal = (props: TerminalProps) => {
             { ptyID: id, directory },
             {
               throwOnError: false,
-              headers: { "x-opencode-ticket": "1" },
+              headers: { "x-crokcode-ticket": "1" },
             },
           )
           .catch((err: unknown) => {

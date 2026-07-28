@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# opencode Korean IME Fix Installer
+# crokcode Korean IME Fix Installer
 # https://github.com/anomalyco/opencode/issues/14371
 #
-# Patches opencode to prevent Korean (and other CJK) IME last character
+# Patches crokcode to prevent Korean (and other CJK) IME last character
 # truncation when pressing Enter in Kitty and other terminals.
 #
 # Usage:
@@ -18,8 +18,8 @@ ORANGE='\033[38;5;214m'
 MUTED='\033[0;2m'
 NC='\033[0m'
 
-CROKCODE_DIR="${CROKCODE_DIR:-$HOME/.opencode}"
-CROKCODE_SRC="${CROKCODE_SRC:-$HOME/.opencode-src}"
+CROKCODE_DIR="${CROKCODE_DIR:-$HOME/.crokcode}"
+CROKCODE_SRC="${CROKCODE_SRC:-$HOME/.crokcode-src}"
 FORK_REPO="${FORK_REPO:-https://github.com/claudianus/opencode.git}"
 FORK_BRANCH="${FORK_BRANCH:-fix-zhipuai-coding-plan-thinking}"
 
@@ -50,7 +50,7 @@ else
 fi
 
 # ── 2. Verify the IME fix is present in source ────────────────────────
-PROMPT_FILE="$CROKCODE_SRC/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx"
+PROMPT_FILE="$CROKCODE_SRC/packages/crokcode/src/cli/cmd/tui/component/prompt/index.tsx"
 if [ ! -f "$PROMPT_FILE" ]; then
   err "Prompt file not found: $PROMPT_FILE"
   exit 1
@@ -76,8 +76,8 @@ cd "$CROKCODE_SRC"
 bun install --frozen-lockfile 2>/dev/null || bun install
 
 # ── 4. Build (current platform only) ──────────────────────────────────
-info "Building opencode for current platform ..."
-cd "$CROKCODE_SRC/packages/opencode"
+info "Building crokcode for current platform ..."
+cd "$CROKCODE_SRC/packages/crokcode"
 bun run build --single
 
 # ── 5. Install binary ──────────────────────────────────────────────────
@@ -90,23 +90,23 @@ ARCH=$(uname -m)
 [ "$PLATFORM" = "darwin" ] && true
 [ "$PLATFORM" = "linux" ] && true
 
-BUILT_BINARY="$CROKCODE_SRC/packages/opencode/dist/opencode-${PLATFORM}-${ARCH}/bin/opencode"
+BUILT_BINARY="$CROKCODE_SRC/packages/crokcode/dist/crokcode-${PLATFORM}-${ARCH}/bin/crokcode"
 
 if [ ! -f "$BUILT_BINARY" ]; then
-  BUILT_BINARY=$(find "$CROKCODE_SRC/packages/opencode/dist" -name "opencode" -type f -executable 2>/dev/null | head -1)
+  BUILT_BINARY=$(find "$CROKCODE_SRC/packages/crokcode/dist" -name "crokcode" -type f -executable 2>/dev/null | head -1)
 fi
 
 if [ -f "$BUILT_BINARY" ]; then
-  if [ -f "$CROKCODE_DIR/bin/opencode" ]; then
-    cp "$CROKCODE_DIR/bin/opencode" "$CROKCODE_DIR/bin/opencode.bak.$(date +%Y%m%d%H%M%S)"
+  if [ -f "$CROKCODE_DIR/bin/crokcode" ]; then
+    cp "$CROKCODE_DIR/bin/crokcode" "$CROKCODE_DIR/bin/crokcode.bak.$(date +%Y%m%d%H%M%S)"
   fi
-  cp "$BUILT_BINARY" "$CROKCODE_DIR/bin/opencode"
-  chmod +x "$CROKCODE_DIR/bin/opencode"
-  ok "Installed to $CROKCODE_DIR/bin/opencode"
+  cp "$BUILT_BINARY" "$CROKCODE_DIR/bin/crokcode"
+  chmod +x "$CROKCODE_DIR/bin/crokcode"
+  ok "Installed to $CROKCODE_DIR/bin/crokcode"
 else
   err "Build failed - binary not found in dist/"
   info "Try running manually:"
-  echo "  cd $CROKCODE_SRC/packages/opencode && bun run build --single"
+  echo "  cd $CROKCODE_SRC/packages/crokcode && bun run build --single"
   exit 1
 fi
 

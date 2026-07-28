@@ -57,7 +57,7 @@ export function parseTranslationArgs(args: string[]) {
     args,
     options: {
       concurrency: { type: "string", short: "c", default: "4" },
-      model: { type: "string", default: "opencode/gpt-5.5" },
+      model: { type: "string", default: "crokcode/gpt-5.5" },
       variant: { type: "string", default: "xhigh" },
       "dry-run": { type: "boolean", default: false },
       check: { type: "boolean", default: false },
@@ -92,9 +92,9 @@ export function targetFiles(locale: Locale) {
 }
 
 export function glossaryFile(locale: Locale) {
-  if (locale === "zh") return ".opencode/glossary/zh-cn.md"
-  if (locale === "zht") return ".opencode/glossary/zh-tw.md"
-  return `.opencode/glossary/${locale}.md`
+  if (locale === "zh") return ".crokcode/glossary/zh-cn.md"
+  if (locale === "zht") return ".crokcode/glossary/zh-tw.md"
+  return `.crokcode/glossary/${locale}.md`
 }
 
 export function findDrift(source: Dictionary, target: Dictionary) {
@@ -109,17 +109,17 @@ export function findDrift(source: Dictionary, target: Dictionary) {
 
 export function sessionIDFromEvents(output: string) {
   const match = output.match(/"sessionID"\s*:\s*"([^"]+)"/)
-  if (!match?.[1]) throw new Error("OpenCode did not report a session ID.")
+  if (!match?.[1]) throw new Error("CrokCode did not report a session ID.")
   return match[1]
 }
 
 export function sessionModels(value: unknown) {
   if (!isRecord(value) || !Array.isArray(value.messages))
-    throw new Error("OpenCode returned an invalid session export.")
+    throw new Error("CrokCode returned an invalid session export.")
   return value.messages.flatMap((message) => {
     if (!isRecord(message) || !isRecord(message.info) || message.info.role !== "assistant") return []
     if (typeof message.info.providerID !== "string" || typeof message.info.modelID !== "string") {
-      throw new Error("OpenCode session export omitted the assistant model.")
+      throw new Error("CrokCode session export omitted the assistant model.")
     }
     return [
       {
@@ -200,10 +200,10 @@ Usage: bun run translate:app -- <locale|all> [options]
 Synchronizes product app translations with the English app, UI, and desktop dictionaries.
 
 Options:
-  -c, --concurrency <count>  Maximum parallel OpenCode runs for 'all' (default: 4)
-      --model <provider/id>  OpenCode model (default: opencode/gpt-5.5)
+  -c, --concurrency <count>  Maximum parallel CrokCode runs for 'all' (default: 4)
+      --model <provider/id>  CrokCode model (default: crokcode/gpt-5.5)
       --variant <name>       Model variant (default: xhigh)
-      --dry-run              Report drift without running OpenCode
+      --dry-run              Report drift without running CrokCode
       --check                Exit nonzero when translation drift exists
   -h, --help                 Show this help message
 
@@ -257,7 +257,7 @@ Examples:
     return
   }
 
-  if (failed.length) console.error(`\nOpenCode failed for: ${failed.map((result) => result.locale).join(", ")}`)
+  if (failed.length) console.error(`\nCrokCode failed for: ${failed.map((result) => result.locale).join(", ")}`)
   if (incomplete.length)
     console.error(`Translation remains incomplete for: ${incomplete.map((plan) => plan.locale).join(", ")}`)
   if (escaped.length) console.error(`Translation changed files outside its locale targets: ${escaped.join(", ")}`)

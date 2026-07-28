@@ -131,7 +131,7 @@ export default function Home() {
             <h3 data-component="title">homebrew</h3>
             <button data-copy data-slot="button">
               <span>
-                brew install <strong>opencode</strong>
+                brew install <strong>crokcode</strong>
               </span>
               <CopyStatus />
             </button>
@@ -140,7 +140,7 @@ export default function Home() {
             <h3 data-component="title">paru</h3>
             <button data-copy data-slot="button">
               <span>
-                paru -S <strong>opencode-bin</strong>
+                paru -S <strong>crokcode-bin</strong>
               </span>
               <CopyStatus />
             </button>
@@ -158,7 +158,7 @@ export default function Home() {
 
         <footer data-component="footer">
           <div data-slot="cell">
-            <a href="https://x.com/opencode">{i18n.t("footer.x")}</a>
+            <a href="https://x.com/crokcode">{i18n.t("footer.x")}</a>
           </div>
           <div data-slot="cell">
             <a href="https://github.com/anomalyco/opencode">{i18n.t("footer.github")}</a>

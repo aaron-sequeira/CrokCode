@@ -77,7 +77,7 @@ Focused tests will cover:
 - update dialog actions update, postpone, or persist a skipped version;
 - update failures keep the TUI usable.
 
-After focused tests, run `bun typecheck` and the relevant TUI and opencode test
+After focused tests, run `bun typecheck` and the relevant TUI and crokcode test
 suites from their package directories.
 
 ## Release and deployment

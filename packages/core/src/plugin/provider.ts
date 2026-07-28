@@ -22,7 +22,7 @@ import { OpenAIPlugin } from "./provider/openai"
 import { SnowflakeCortexPlugin } from "./provider/snowflake-cortex"
 import { OpenAICompatiblePlugin } from "./provider/openai-compatible"
 import { CrokApiPlugin } from "./provider/crokapi"
-import { OpencodePlugin } from "./provider/opencode"
+import { CrokcodePlugin } from "./provider/crokcode"
 import { OpenRouterPlugin } from "./provider/openrouter"
 import { PerplexityPlugin } from "./provider/perplexity"
 import { SapAICorePlugin } from "./provider/sap-ai-core"
@@ -57,7 +57,7 @@ export const ProviderPlugins: PluginInternal.Plugin<PluginInternal.Requirements 
   MistralPlugin,
   NvidiaPlugin,
   CrokApiPlugin,
-  OpencodePlugin,
+  CrokcodePlugin,
   SnowflakeCortexPlugin,
   OpenAICompatiblePlugin,
   OpenAIPlugin,

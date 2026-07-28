@@ -10,7 +10,7 @@ import { define } from "../internal"
 // Billing plans (see the CrokCode console): crokgo, crokpro, crok-as-you-go.
 //
 // NOTE: this registers CrokAPI in the v2 catalog. Model *resolution* still runs
-// through the v1 provider state in packages/opencode/src/provider/provider.ts,
+// through the v1 provider state in packages/crokcode/src/provider/provider.ts,
 // which builds custom providers from config. So a `provider.crokapi` block in
 // the user's config is what actually makes these models selectable today; this
 // plugin keeps the v2 catalog in sync for consumers that read it. Keep the two

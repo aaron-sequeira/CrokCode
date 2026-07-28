@@ -51,6 +51,6 @@ export const makeEventGroup = <const Definitions extends ReadonlyArray<Definitio
 
 const event = make(EventManifest.ServerDefinitions)
 export const EventGroup = event.group
-export const OpenCodeEvent = event.schema
-export type OpenCodeEvent = typeof OpenCodeEvent.Type
-export type OpenCodeEventEncoded = typeof OpenCodeEvent.Encoded
+export const CrokCodeEvent = event.schema
+export type CrokCodeEvent = typeof CrokCodeEvent.Type
+export type CrokCodeEventEncoded = typeof CrokCodeEvent.Encoded

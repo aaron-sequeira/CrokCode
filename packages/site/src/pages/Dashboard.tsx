@@ -42,7 +42,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "usage", label: "Recent usage" },
 ]
 
-// A copy-pasteable provider block for ~/.config/crokcode/opencode.jsonc.
+// A copy-pasteable provider block for ~/.config/crokcode/crokcode.jsonc.
 function ConnectSnippet({ providerId, name, apiKey }: { providerId: string; name: string; apiKey: string }) {
   return (
     <pre
@@ -418,7 +418,7 @@ export function Dashboard({ user }: { user: User }) {
               <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>
                 Crok-as-you-go runs through the CrokAPI gateway with an API key. Create one, then add this{" "}
                 <code style={{ fontFamily: "var(--mono)" }}>crok-as-you-go</code> provider to{" "}
-                <code style={{ fontFamily: "var(--mono)" }}>~/.config/crokcode/opencode.jsonc</code>.
+                <code style={{ fontFamily: "var(--mono)" }}>~/.config/crokcode/crokcode.jsonc</code>.
               </p>
               <button className="btn btn-primary btn-sm" style={{ marginBottom: 16 }} disabled={!!busy} onClick={createPaygKey}>
                 {busy === "paygkey" ? "Creating…" : "Create a Crok-as-you-go key"}

@@ -1,9 +1,9 @@
-import { createOpencodeClient } from "@crokcode/sdk/v2/client"
+import { createCrokcodeClient } from "@crokcode/sdk/v2/client"
 import type { ServerConnection } from "@/context/server"
 import { decode64 } from "@/utils/base64"
 
 export function authTokenFromCredentials(input: { username?: string; password: string }) {
-  return btoa(`${input.username ?? "opencode"}:${input.password}`)
+  return btoa(`${input.username ?? "crokcode"}:${input.password}`)
 }
 
 export function authFromToken(token: string | null) {
@@ -12,7 +12,7 @@ export function authFromToken(token: string | null) {
   const separator = decoded.indexOf(":")
   if (separator === -1) return
   return {
-    username: decoded.slice(0, separator) || "opencode",
+    username: decoded.slice(0, separator) || "crokcode",
     password: decoded.slice(separator + 1),
   }
 }
@@ -20,7 +20,7 @@ export function authFromToken(token: string | null) {
 export function createSdkForServer({
   server,
   ...config
-}: Omit<NonNullable<Parameters<typeof createOpencodeClient>[0]>, "baseUrl"> & {
+}: Omit<NonNullable<Parameters<typeof createCrokcodeClient>[0]>, "baseUrl"> & {
   server: ServerConnection.HttpBase
 }) {
   const auth = (() => {
@@ -30,7 +30,7 @@ export function createSdkForServer({
     }
   })()
 
-  return createOpencodeClient({
+  return createCrokcodeClient({
     ...config,
     headers: {
       ...(config.headers instanceof Headers ? Object.fromEntries(config.headers.entries()) : config.headers),

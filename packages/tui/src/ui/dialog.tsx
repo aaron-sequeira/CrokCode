@@ -5,7 +5,7 @@ import { MouseButton, Renderable, RGBA } from "@opentui/core"
 import { createStore } from "solid-js/store"
 import { useToast } from "./toast"
 import { Flag } from "@crokcode/core/flag/flag"
-import { useBindings, useOpencodeModeStack } from "../keymap"
+import { useBindings, useCrokcodeModeStack } from "../keymap"
 import { useClipboard } from "../context/clipboard"
 
 export function Dialog(
@@ -76,7 +76,7 @@ function init() {
   })
 
   const renderer = useRenderer()
-  const modeStack = useOpencodeModeStack()
+  const modeStack = useCrokcodeModeStack()
 
   createEffect(() => {
     if (store.stack.length === 0) return

@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# CrokCode Desktop
 
-The OpenCode Desktop app, built with Electron.
+The CrokCode Desktop app, built with Electron.
 
 ## Development
 

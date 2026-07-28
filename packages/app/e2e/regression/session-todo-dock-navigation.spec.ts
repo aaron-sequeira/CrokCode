@@ -1,9 +1,9 @@
 import { base64Encode } from "@crokcode/core/util/encode"
 import { expect, test, type Page } from "@playwright/test"
-import { mockOpenCodeServer } from "../utils/mock-server"
+import { mockCrokCodeServer } from "../utils/mock-server"
 import { expectSessionTitle } from "../utils/waits"
 
-const directory = "C:/OpenCode/TodoDockNavigation"
+const directory = "C:/CrokCode/TodoDockNavigation"
 const projectID = "proj_todo_dock_navigation"
 const sourceID = "ses_todo_dock_source"
 const otherID = "ses_todo_dock_other"
@@ -28,7 +28,7 @@ test("animates todo lifecycle without replaying it across session tabs", async (
   const events: EventPayload[] = []
   const todos: Record<string, typeof activeTodos> = { [sourceID]: [], [otherID]: [] }
 
-  await mockOpenCodeServer(page, {
+  await mockCrokCodeServer(page, {
     directory,
     project: {
       id: projectID,
@@ -42,7 +42,7 @@ test("animates todo lifecycle without replaying it across session tabs", async (
       all: [
         {
           id: "opencode",
-          name: "OpenCode",
+          name: "CrokCode",
           models: {
             "claude-opus-4-6": {
               id: "claude-opus-4-6",
@@ -138,14 +138,14 @@ async function configurePage(page: Page) {
     ({ directory, dirBase64, server, sessionIDs }) => {
       localStorage.setItem("settings.v3", JSON.stringify({ general: { newLayoutDesigns: true } }))
       localStorage.setItem(
-        "opencode.global.dat:server",
+        "crokcode.global.dat:server",
         JSON.stringify({
           projects: { local: [{ worktree: directory, expanded: true }] },
           lastProject: { local: directory },
         }),
       )
       localStorage.setItem(
-        "opencode.window.browser.dat:tabs",
+        "crokcode.window.browser.dat:tabs",
         JSON.stringify(sessionIDs.map((sessionId) => ({ type: "session", server, dirBase64, sessionId }))),
       )
     },

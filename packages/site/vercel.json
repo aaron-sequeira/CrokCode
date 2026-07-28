@@ -4,7 +4,8 @@
   "buildCommand": "vite build",
   "installCommand": "bun install",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "redirects": [{ "source": "/install", "destination": "/install.sh", "permanent": false }],
+  "rewrites": [{ "source": "/((?!install\\.sh|install\\.ps1|assets|robots\\.txt|sitemap\\.xml|favicon\\.svg|og\\.png|croc\\.svg).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -16,7 +17,7 @@
     },
     {
       "source": "/install.sh",
-      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }, { "key": "Cache-Control", "value": "no-cache" }]
     }
   ]
 }

@@ -1,4 +1,4 @@
-export * as OpenCode from "./opencode"
+export * as CrokCode from "./crokcode"
 export * as Tool from "./tool"
 
 export { ClientError } from "@crokcode/client/effect"
@@ -14,4 +14,4 @@ export {
   SessionInput,
   SessionMessage,
 } from "@crokcode/client/effect"
-export type { OpenCodeEvent } from "@crokcode/client/effect"
+export type { CrokCodeEvent } from "@crokcode/client/effect"

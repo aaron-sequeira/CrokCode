@@ -63,7 +63,7 @@ void initI18n()
 const [updaterState, setUpdaterState] = createSignal<UpdaterState>({ status: "disabled" })
 void window.api.updater.subscribe(setUpdaterState)
 
-const deepLinkEvent = "opencode:deep-link"
+const deepLinkEvent = "crokcode:deep-link"
 
 type DesktopWindowState = {
   id?: string
@@ -83,7 +83,7 @@ const listenForDeepLinks = () => {
 }
 
 function windowLastActiveUrlKey(windowID: string) {
-  return `opencode.desktop.window.${windowID}.last-active-url`
+  return `crokcode.desktop.window.${windowID}.last-active-url`
 }
 
 function getLastActiveUrl(windowID: string) {
@@ -332,7 +332,7 @@ function LoadingSplash() {
 function DesktopRoot(props: { windowState: DesktopWindowState }) {
   const platform = createPlatform(props.windowState)
   const loadLocale = async () => {
-    const current = await platform.storage?.("opencode.global.dat").getItem("language")
+    const current = await platform.storage?.("crokcode.global.dat").getItem("language")
     const legacy = current ? undefined : await platform.storage?.().getItem("language.v1")
     const raw = current ?? legacy
     if (!raw) return

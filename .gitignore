@@ -20,14 +20,14 @@ ts-dist
 /result
 refs
 Session.vim
-/opencode.json
+/crokcode.json
 a.out
 target
 .scripts
 .direnv/
 
 # Local dev files
-opencode-dev
+crokcode-dev
 UPCOMING_CHANGELOG.md
 logs/
 *.bun-build

@@ -6,9 +6,9 @@ import { define } from "./internal"
 import { Effect } from "effect"
 import { AbsolutePath } from "../schema"
 import { SkillV2 } from "../skill"
-import customizeOpencodeContent from "./skill/customize-opencode.md" with { type: "text" }
+import customizeCrokcodeContent from "./skill/customize-crokcode.md" with { type: "text" }
 
-export const CustomizeOpencodeContent = customizeOpencodeContent
+export const CustomizeCrokcodeContent = customizeCrokcodeContent
 
 export const Plugin = define({
   id: "skill",
@@ -18,11 +18,11 @@ export const Plugin = define({
         SkillV2.EmbeddedSource.make({
           type: "embedded",
           skill: SkillV2.Info.make({
-            name: "customize-opencode",
+            name: "customize-crokcode",
             description:
-              "Use ONLY when the user is editing or creating opencode's own configuration: opencode.json, opencode.jsonc, files under .opencode/, or files under ~/.config/opencode/. Also use when creating or fixing opencode agents, subagents, commands, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring opencode itself.",
-            location: AbsolutePath.make("/builtin/customize-opencode.md"),
-            content: CustomizeOpencodeContent,
+              "Use ONLY when the user is editing or creating crokcode's own configuration: crokcode.json, crokcode.jsonc, files under .crokcode/, or files under ~/.config/crokcode/. Also use when creating or fixing crokcode agents, subagents, commands, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring crokcode itself.",
+            location: AbsolutePath.make("/builtin/customize-crokcode.md"),
+            content: CustomizeCrokcodeContent,
           }),
         }),
       )

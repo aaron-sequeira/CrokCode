@@ -17,7 +17,7 @@ import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
 import { ollamaProvider, ollamaStatus } from "../util/local-models"
 
-// Server providers that still belong in "Popular". OpenCode Zen (opencode) and
+// Server providers that still belong in "Popular". OpenCode Zen (crokcode) and
 // OpenCode Go (opencode-go) were removed so CrokCode's own plans lead instead.
 const PROVIDER_PRIORITY: Record<string, number> = {
   openai: 0,
@@ -35,7 +35,7 @@ const CROK_PLANS = [
   { id: "crok-as-you-go", title: "Crok-as-you-go", description: "Pay as you go — all 21 models, no caps" },
 ] as const
 
-const CUSTOM_PROVIDER_OPTION_VALUE = "__opencode_custom_provider__"
+const CUSTOM_PROVIDER_OPTION_VALUE = "__crokcode_custom_provider__"
 const CUSTOM_PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/
 
 type ProviderOptionBase = {
@@ -129,7 +129,7 @@ export function createDialogProviderOptions() {
       placeholder: "Provider id",
       description: () => (
         <text fg={theme.textMuted}>
-          This only stores a credential. Configure the provider in opencode.json to use it.
+          This only stores a credential. Configure the provider in crokcode.json to use it.
         </text>
       ),
     })
@@ -486,7 +486,7 @@ function ApiMethod(props: ApiMethodProps) {
         if (props.custom && !sync.data.provider_next.all.some((provider) => provider.id === props.providerID)) {
           toast.show({
             variant: "info",
-            message: `Saved credential for ${props.providerID}. Configure it in opencode.json to use it.`,
+            message: `Saved credential for ${props.providerID}. Configure it in crokcode.json to use it.`,
           })
           dialog.clear()
           return
@@ -548,7 +548,7 @@ async function PromptsMethod(props: PromptsMethodProps) {
 }
 
 // --- CrokCode plan connect (browser device-pairing) ---------------------------
-// Mirrors packages/opencode/src/cli/cmd/login.ts. All plans connect the same
+// Mirrors packages/crokcode/src/cli/cmd/login.ts. All plans connect the same
 // `crokapi` gateway provider; the gateway enforces the account's real plan.
 // ponytail: the model list + config write are duplicated from login.ts. If this
 // diverges, extract a shared helper both the CLI and TUI import.

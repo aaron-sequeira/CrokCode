@@ -1,6 +1,6 @@
 import { BoxRenderable, RenderableEvents, TextAttributes } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
-import { createMemo, createSignal, For, onCleanup, Show } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import type { ToolPart } from "@crokcode/sdk/v2"
 import { useTheme } from "../../context/theme"
 import { useSDK } from "../../context/sdk"
@@ -47,6 +47,12 @@ export function GuardCards(props: {
       ? { inline: props.findings, additional: props.additional ?? [] }
       : guardSummary(props.metadata, props.file),
   )
+
+  const fresh = createMemo(() => {
+    const state = props.part.state
+    if (state.status !== "completed" && state.status !== "error") return false
+    return Date.now() - state.time.end < 30_000
+  })
 
   function action(name: string, run: () => unknown) {
     void runGuardAction(run, (error) =>
@@ -147,6 +153,7 @@ export function GuardCards(props: {
           {(finding) => (
             <GuardCard
               finding={finding}
+              fresh={fresh()}
               onFix={() => {
                 const scan = result()
                 if (scan) action("fix", () => submitGuardFix(finding, scan, sendPrompt))
@@ -176,11 +183,18 @@ export function GuardCards(props: {
   )
 }
 
-function GuardCard(props: { finding: GuardFinding; onFix: () => void; onExplain: () => void; onRevert?: () => void }) {
+function GuardCard(props: {
+  finding: GuardFinding
+  fresh?: boolean
+  onFix: () => void
+  onExplain: () => void
+  onRevert?: () => void
+}) {
   const { theme } = useTheme()
   const renderer = useRenderer()
   const promptRef = usePromptRef()
   const pathFormatter = usePathFormatter()
+  const dialog = useDialog()
   const [focused, setFocused] = createSignal(false)
   let card: BoxRenderable
   const onFocus = () => setFocused(true)
@@ -191,6 +205,17 @@ function GuardCard(props: { finding: GuardFinding; onFix: () => void; onExplain:
     card.focus()
   }
 
+  const refocusPrompt = () => {
+    if (card && renderer.currentFocusedRenderable === card) promptRef.current?.focus()
+  }
+
+  onMount(() => {
+    if (!props.fresh) return
+    if (dialog.stack.length > 0) return
+    if (promptRef.current?.current.input) return
+    focus()
+  })
+
   useBindings(() => ({
     enabled: () =>
       guardActionsEnabled({
@@ -199,10 +224,13 @@ function GuardCard(props: { finding: GuardFinding; onFix: () => void; onExplain:
         editorFocused: renderer.currentFocusedEditor !== null,
       }),
     bindings: [
-      { key: "f", desc: "Fix Guard finding", group: "Guard", cmd: props.onFix },
-      { key: "e", desc: "Explain Guard finding", group: "Guard", cmd: props.onExplain },
-      ...(props.onRevert ? [{ key: "r", desc: "Revert Guard finding", group: "Guard", cmd: props.onRevert }] : []),
-      { key: "return", desc: "Explain Guard finding", group: "Guard", cmd: props.onExplain },
+      { key: "f", desc: "Fix Guard finding", group: "Guard", cmd: () => { props.onFix(); refocusPrompt() } },
+      { key: "e", desc: "Explain Guard finding", group: "Guard", cmd: () => { props.onExplain(); refocusPrompt() } },
+      ...(props.onRevert
+        ? [{ key: "r", desc: "Revert Guard finding", group: "Guard", cmd: () => { props.onRevert!(); refocusPrompt() } }]
+        : []),
+      { key: "return", desc: "Explain Guard finding", group: "Guard", cmd: () => { props.onExplain(); refocusPrompt() } },
+      { key: "escape", desc: "Return to prompt", group: "Guard", cmd: refocusPrompt },
     ],
   }))
 

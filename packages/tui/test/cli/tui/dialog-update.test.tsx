@@ -3,7 +3,7 @@ import { expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui"
 import { TestTuiContexts } from "../../fixture/tui-environment"
-import { OpencodeKeymapProvider, registerOpencodeKeymap } from "../../../src/keymap"
+import { CrokcodeKeymapProvider, registerCrokcodeKeymap } from "../../../src/keymap"
 import { TuiConfigProvider } from "../../../src/config"
 import { KVProvider } from "../../../src/context/kv"
 import { ThemeProvider } from "../../../src/context/theme"
@@ -25,10 +25,10 @@ test("renders and selects every update action", async () => {
   function Root() {
     const renderer = useRenderer()
     const keymap = createDefaultOpenTuiKeymap(renderer)
-    registerOpencodeKeymap(keymap, renderer, config)
+    registerCrokcodeKeymap(keymap, renderer, config)
     return (
       <TestTuiContexts>
-        <OpencodeKeymapProvider keymap={keymap}>
+        <CrokcodeKeymapProvider keymap={keymap}>
           <TuiConfigProvider config={config}>
             <KVProvider>
               <ThemeProvider mode="dark">
@@ -42,7 +42,7 @@ test("renders and selects every update action", async () => {
               </ThemeProvider>
             </KVProvider>
           </TuiConfigProvider>
-        </OpencodeKeymapProvider>
+        </CrokcodeKeymapProvider>
       </TestTuiContexts>
     )
   }

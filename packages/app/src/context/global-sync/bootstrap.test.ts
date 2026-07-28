@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createStore } from "solid-js/store"
 import { QueryClient } from "@tanstack/solid-query"
-import type { Config, OpencodeClient, Project, Session } from "@crokcode/sdk/v2/client"
+import type { Config, CrokcodeClient, Project, Session } from "@crokcode/sdk/v2/client"
 import type { NormalizedProviderListResponse } from "@crokcode/session-ui/context"
 import { bootstrapDirectory, loadPathQuery, loadProvidersQuery } from "./bootstrap"
 import type { State, VcsCache } from "./types"
@@ -82,7 +82,7 @@ describe("bootstrapDirectory", () => {
           },
         },
         provider: { list: async () => ({ data: { all: [], connected: [], default: {} } }) },
-      } as unknown as OpencodeClient,
+      } as unknown as CrokcodeClient,
       store,
       setStore,
       vcsCache: { setStore() {} } as unknown as VcsCache,
@@ -116,7 +116,7 @@ describe("bootstrapDirectory", () => {
       v2: { reference: { list: async () => ({ data: { data: [] } }) } },
       mcp: { status: async () => ({ data: {} }) },
       provider: { list: async () => ({ data: { all: [], connected: [], default: {} } }) },
-    } as unknown as OpencodeClient
+    } as unknown as CrokcodeClient
     const session = createServerSession(client)
     const stale: Session = {
       id: "ses_stale",
@@ -162,7 +162,7 @@ describe("bootstrapDirectory", () => {
 
 describe("query keys", () => {
   test("partitions identical directories by server scope", () => {
-    const client = {} as OpencodeClient
+    const client = {} as CrokcodeClient
     const remote = "https://debian.example" as typeof ServerScope.local
 
     expect([...loadPathQuery(ServerScope.local, "/repo", client).queryKey]).toEqual(["local", "/repo", "path"])

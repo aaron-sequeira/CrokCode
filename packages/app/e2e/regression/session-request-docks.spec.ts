@@ -1,10 +1,10 @@
 import { base64Encode } from "@crokcode/core/util/encode"
 import { expect, test, type Page } from "@playwright/test"
-import { mockOpenCodeServer } from "../utils/mock-server"
+import { mockCrokCodeServer } from "../utils/mock-server"
 import { installSseTransport } from "../utils/sse-transport"
 import { expectSessionTitle } from "../utils/waits"
 
-const directory = "C:/OpenCode/RequestDocks"
+const directory = "C:/CrokCode/RequestDocks"
 const projectID = "proj_request_docks"
 const sessionID = "ses_request_docks"
 const title = "Request dock regression"
@@ -169,7 +169,7 @@ async function mockServer(
     questions?: unknown[] | (() => unknown[])
   },
 ) {
-  await mockOpenCodeServer(page, {
+  await mockCrokCodeServer(page, {
     directory,
     project: {
       id: projectID,
@@ -183,7 +183,7 @@ async function mockServer(
       all: [
         {
           id: "opencode",
-          name: "OpenCode",
+          name: "CrokCode",
           models: {
             "claude-opus-4-6": {
               id: "claude-opus-4-6",

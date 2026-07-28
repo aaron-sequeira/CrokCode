@@ -24,10 +24,10 @@ jobs:
         id: setup-git-committer
         uses: ./.github/actions/setup-git-committer
         with:
-          opencode-app-id: ${{ vars.CROKCODE_APP_ID }}
-          opencode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
+          crokcode-app-id: ${{ vars.CROKCODE_APP_ID }}
+          crokcode-app-secret: ${{ secrets.CROKCODE_APP_SECRET }}
 
-      - name: Install OpenCode
+      - name: Install CrokCode
         run: bun i -g opencode-ai
 
       - name: Sync beta branch
