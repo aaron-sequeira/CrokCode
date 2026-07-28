@@ -269,3 +269,17 @@ itWorkspace.live("captures ignored source changes, refuses stale revert, and res
     expect(yield* guard.restoreWorkspace(current!)).toBe(false)
   }),
 )
+
+itWorkspace.live("evicts the oldest snapshot instead of failing new captures when full", () =>
+  Effect.gen(function* () {
+    const directory = yield* tmpdirScoped()
+    const guard = yield* Guard.Service
+    const ids: (string | undefined)[] = []
+    for (let i = 0; i < 17; i++) ids.push(yield* guard.captureWorkspace(directory))
+    // Every capture succeeds — the old cap-of-4 returned undefined ("Guard check unavailable") once full.
+    expect(ids.every((id) => id !== undefined)).toBe(true)
+    // The oldest snapshot was evicted, so its diff is gone; a recent one still resolves.
+    expect(yield* guard.diffWorkspace(ids[0]!)).toBeUndefined()
+    expect(yield* guard.diffWorkspace(ids[16]!)).toBeDefined()
+  }),
+)

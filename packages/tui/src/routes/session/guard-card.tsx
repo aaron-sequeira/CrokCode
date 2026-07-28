@@ -15,7 +15,6 @@ import { usePathFormatter } from "../../context/path-format"
 import {
   guardActionsEnabled,
   guardCheckUnavailable,
-  guardDependencyUnavailable,
   guardDialogText,
   guardResult,
   guardResolveAction,
@@ -144,8 +143,7 @@ export function GuardCards(props: {
       when={
         summary().inline.length > 0 ||
         summary().additional.length > 0 ||
-        (props.showStatus !== false &&
-          (guardCheckUnavailable(props.metadata) || guardDependencyUnavailable(props.metadata)))
+        (props.showStatus !== false && guardCheckUnavailable(props.metadata))
       }
     >
       <box flexDirection="column" gap={1} marginTop={1}>
@@ -174,9 +172,6 @@ export function GuardCards(props: {
         </Show>
         <Show when={props.showStatus !== false && guardCheckUnavailable(props.metadata)}>
           <text fg={theme.error}>Guard check unavailable</text>
-        </Show>
-        <Show when={props.showStatus !== false && guardDependencyUnavailable(props.metadata)}>
-          <text fg={theme.warning}>Dependency check: check unavailable</text>
         </Show>
       </box>
     </Show>

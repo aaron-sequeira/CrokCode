@@ -97,10 +97,6 @@ export function guardCheckUnavailable(metadata: unknown) {
   return guardResult(metadata)?.status === "unavailable"
 }
 
-export function guardDependencyUnavailable(metadata: unknown) {
-  return guardResult(metadata)?.dependency_audit.status === "unavailable"
-}
-
 export function guardShellCommand(metadata: unknown, command: string | undefined) {
   if (guardFindings(metadata).some((finding) => finding.source === "secret")) return "[REDACTED COMMAND]"
   if (
@@ -201,5 +197,5 @@ export function guardDialogText(value: unknown) {
     : result.status === "unavailable"
       ? "Guard check unavailable."
       : "No Guard findings."
-  return `${findings}\n\nDependency check: check unavailable`
+  return findings
 }

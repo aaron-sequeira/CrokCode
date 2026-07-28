@@ -3,7 +3,6 @@ import {
   buildGuardFixPrompt,
   guardActionsEnabled,
   guardCheckUnavailable,
-  guardDependencyUnavailable,
   guardDialogText,
   guardFindings,
   guardResolveAction,
@@ -136,10 +135,6 @@ describe("session Guard helpers", () => {
         ).guard,
       ),
     ).toBe(true)
-  })
-
-  test("reports dependency audit unavailability without a dependency finding", () => {
-    expect(guardDependencyUnavailable(metadata([warning]))).toBe(true)
   })
 
   test("guards rejected async actions with one error callback", async () => {

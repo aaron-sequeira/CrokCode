@@ -282,8 +282,14 @@ const layer = Layer.sync(Service, () => {
     scan: (changes, phase) => Effect.succeed(scan(changes, phase)),
     captureWorkspace: (root) =>
       Effect.promise(async () => {
-        // ponytail: v0.1 keeps at most four unresolved snapshots in memory; fail new captures instead of evicting live cards.
-        if (snapshots.size >= 4) return
+        // ponytail: cap in-memory snapshots at 16; evict the oldest instead of failing every new
+        // check once full (the old cap of 4 showed "Guard check unavailable" after 4 unresolved
+        // cards). Eviction only costs the oldest card its revert snapshot, not the check itself.
+        while (snapshots.size >= 16) {
+          const oldest = snapshots.keys().next().value
+          if (oldest === undefined) break
+          snapshots.delete(oldest)
+        }
         const files = await capture(root)
         if (!files) return
         const id = randomUUID()
