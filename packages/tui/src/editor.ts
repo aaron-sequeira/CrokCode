@@ -23,9 +23,13 @@ export function normalizePromptContent(content: string) {
   return content
 }
 
+// Windows sets neither VISUAL nor EDITOR by default, and bare containers often
+// don't either — which made /editor a silent no-op. Fall back to an editor the
+// platform is guaranteed to have.
+const FALLBACK_EDITOR = process.platform === "win32" ? "notepad" : "vi"
+
 export async function openEditor(input: { value: string; renderer: CliRenderer; cwd?: string; stdin?: EditorStdio }) {
-  const editor = process.env.VISUAL || process.env.EDITOR
-  if (!editor) return
+  const editor = process.env.VISUAL || process.env.EDITOR || FALLBACK_EDITOR
   const file = path.join(os.tmpdir(), `${Date.now()}.md`)
   await writeFile(file, input.value)
   input.renderer.suspend()
