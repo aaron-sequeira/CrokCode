@@ -172,9 +172,11 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     session.activeFile = activeFile()
     session.focus = focus()
     session.states = states()
-    for (const renderable of renderables.values()) {
-      if (!renderable.isDestroyed) renderable.destroy()
-    }
+    // Do NOT destroy the renderables here. Solid's reconciler already calls
+    // destroyRecursively() on every node it removes, and these renderables own
+    // native (Zig) EditBuffer/EditorView handles — destroying them from here too
+    // is a double free, which is why leaving hung once a file had been opened.
+    // Dropping our references is all this side owes.
     renderables.clear()
   })
 
@@ -263,6 +265,13 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   const toggleDirectory = (row: FileTreeRow) => {
     const file = rowPath(row)
     setExpandedPaths((current) => togglePath(current, file))
+    // ponytail: diagnostic — collapse is reported broken while the pure toggle
+    // is proven correct in tests, so report what the click actually resolved to.
+    // Remove once a real run says which of the two is lying.
+    props.api.ui.toast({
+      variant: "info",
+      message: `toggle "${file}" → ${expandedPaths().has(file) ? "open" : "closed"} (${expandedPaths().size} open)`,
+    })
     if (!listed.has(file)) void listDirectory(file)
   }
 
