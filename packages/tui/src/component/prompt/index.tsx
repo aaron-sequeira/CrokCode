@@ -46,6 +46,7 @@ import { useDialog } from "../../ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
+import * as Voice from "../../util/voice"
 import { useKV } from "../../context/kv"
 import { createFadeIn } from "../../util/signal"
 import { DialogSkill } from "../dialog-skill"
@@ -102,6 +103,23 @@ const money = new Intl.NumberFormat("en-US", {
 })
 
 const DRAFT_RETENTION_MIN_CHARS = 20
+// Below this, a press+release is a tap (latch recording on) rather than a hold.
+const DICTATE_HOLD_MS = 400
+// A mic capsule between its two guards, drawn from blocks like the rest of the
+// pixel-art in the TUI. Emoji would be double-width and terminal-dependent.
+const MIC_ICON = "▐█▌"
+function micClock(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+// Three cells of level, so a working mic is visible even before you speak.
+// Peaks are tiny in linear terms, hence the compressive scale rather than level*3.
+const MIC_BAR = ["▁", "▃", "▅", "█"]
+function micBar(level: number) {
+  return Array.from({ length: 3 }, (_, index) => MIC_BAR[Math.max(0, Math.min(3, Math.round(level * 40) - index * 2))]).join("")
+}
+// Long enough that the status toast stays up for the whole take; every stage
+// replaces it, and the toast layer has no explicit dismiss.
+const DICTATE_TOAST_MS = 600_000
 
 function randomIndex(count: number) {
   if (count <= 0) return 0
@@ -168,6 +186,18 @@ export function Prompt(props: PromptProps) {
   const keymap = useCrokcodeKeymap()
   const agentShortcut = useCommandShortcut("agent.cycle")
   const paletteShortcut = useCommandShortcut("command.palette.show")
+  const dictateShortcut = useCommandShortcut("prompt.dictate")
+  let dictation: { recording: Voice.Recording; startedAt: number } | undefined
+  let dictationBusy = false
+  const [micState, setMicState] = createSignal<"starting" | "recording" | "transcribing" | undefined>()
+  const [micSeconds, setMicSeconds] = createSignal(0)
+  const [micLevel, setMicLevel] = createSignal(0)
+  const micHearing = createMemo(() => micLevel() >= Voice.MIC_SPEECH_LEVEL)
+  let micTimer: ReturnType<typeof setInterval> | undefined
+  function stopMicTimer() {
+    if (micTimer) clearInterval(micTimer)
+    micTimer = undefined
+  }
   const renderer = useRenderer()
   const exit = useExit()
   const dimensions = useTerminalDimensions()
@@ -392,6 +422,22 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
+        title: "Dictate",
+        name: "prompt.dictate",
+        category: "Prompt",
+        slashName: "dictate",
+        run: async (ctx: CommandContext<Renderable, KeyEvent>) => {
+          // One command, two bindings: the press toggles, the release only ends a
+          // genuine hold. A quick tap releases too fast to count, so it latches on.
+          if (ctx.event?.eventType === "release") {
+            if (!dictation || Date.now() - dictation.startedAt < DICTATE_HOLD_MS) return
+          }
+          if (dictation) return stopDictation()
+          if (ctx.event?.eventType === "release") return
+          return startDictation()
+        },
+      },
+      {
         title: "Interrupt session",
         name: "session.interrupt",
         category: "Session",
@@ -575,6 +621,7 @@ export function Prompt(props: PromptProps) {
       "prompt.stash.pop",
       "prompt.stash.list",
       "prompt.skills",
+      "prompt.dictate",
       "session.interrupt",
       "workspace.set",
       "session.move",
@@ -1246,6 +1293,69 @@ export function Prompt(props: PromptProps) {
     }, 0)
   }
 
+  async function startDictation() {
+    if (dictationBusy) return
+    dictationBusy = true
+    setMicState("starting")
+    try {
+      const recording = await Voice.record()
+      const startedAt = Date.now()
+      dictation = { recording, startedAt }
+      setMicState("recording")
+      setMicSeconds(0)
+      setMicLevel(0)
+      stopMicTimer()
+      // Fast enough that the level reacts while you speak, not a second later.
+      micTimer = setInterval(() => {
+        setMicSeconds(Math.floor((Date.now() - startedAt) / 1000))
+        setMicLevel(Voice.micLevel())
+      }, 150)
+      micTimer.unref?.()
+    } catch (error) {
+      setMicState(undefined)
+      toast.error(error)
+    } finally {
+      dictationBusy = false
+    }
+  }
+
+  async function stopDictation() {
+    const current = dictation
+    dictation = undefined
+    if (!current || dictationBusy) return
+    dictationBusy = true
+    stopMicTimer()
+    setMicState("transcribing")
+    try {
+      const wav = await current.recording.stop()
+      const text = await Voice.transcribe(wav, (message) =>
+        toast.show({ variant: "info", message, duration: DICTATE_TOAST_MS }),
+      )
+      if (!text) {
+        toast.show({ variant: "warning", message: "No speech detected.", duration: 2500 })
+        return
+      }
+      input.insertText(text.endsWith(" ") ? text : `${text} `)
+      toast.dismiss()
+      setTimeout(() => {
+        if (!input || input.isDestroyed) return
+        input.getLayoutNode().markDirty()
+        renderer.requestRender()
+      }, 0)
+    } catch (error) {
+      toast.error(error)
+    } finally {
+      setMicState(undefined)
+      dictationBusy = false
+    }
+  }
+
+  onCleanup(() => {
+    stopMicTimer()
+    dictation?.recording.stop().catch(() => {})
+    Voice.shutdown()
+  })
+
   async function pasteAttachment(file: { filename?: string; filepath?: string; content: string; mime: string }) {
     const currentOffset = input.cursorOffset
     const extmarkStart = currentOffset
@@ -1668,6 +1778,26 @@ export function Prompt(props: PromptProps) {
           </Switch>
           <Show when={status().type !== "retry"}>
             <box gap={2} flexDirection="row">
+              <Show when={micState()}>
+                {(state) => (
+                  <text
+                    fg={
+                      state() !== "recording" ? theme.secondary : micHearing() ? theme.success : theme.error
+                    }
+                    wrapMode="none"
+                  >
+                    {MIC_ICON}
+                    {state() === "recording" ? micBar(micLevel()) : ""}{" "}
+                    <span style={{ fg: theme.textMuted }}>
+                      {state() === "recording"
+                        ? `${micHearing() ? "hearing you" : "listening"} ${micClock(micSeconds())} · ${dictateShortcut()} stop`
+                        : state() === "starting"
+                          ? "starting mic…"
+                          : "transcribing…"}
+                    </span>
+                  </text>
+                )}
+              </Show>
               <Show when={editorContextLabelState() !== "none" ? editorFileLabelDisplay() : undefined}>
                 {(file) => (
                   <text fg={editorContextLabelState() === "pending" ? theme.secondary : theme.textMuted}>{file()}</text>

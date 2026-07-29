@@ -151,6 +151,12 @@ export const Definitions = {
   tool_details: keybind("none", "Toggle tool details visibility"),
   display_thinking: keybind("none", "Toggle thinking blocks visibility"),
 
+  // Tap to toggle, or hold to talk. The release binding only fires in terminals
+  // that report key-release (Kitty protocol); elsewhere the tap-toggle carries it.
+  voice_dictate: keybind(
+    ["ctrl+alt+v", { key: "ctrl+alt+v", event: "release" }],
+    "Dictate into the prompt (hold to talk, or tap to toggle)",
+  ),
   prompt_submit: keybind("none", "Submit prompt"),
   prompt_editor_context_clear: keybind("none", "Clear editor context"),
   prompt_skills: keybind("none", "Open skill selector"),
@@ -356,6 +362,7 @@ export const CommandMap = {
   messages_toggle_conceal: "session.toggle.conceal",
   tool_details: "session.toggle.actions",
   display_thinking: "session.toggle.thinking",
+  voice_dictate: "prompt.dictate",
   prompt_submit: "prompt.submit",
   prompt_editor_context_clear: "prompt.editor_context.clear",
   prompt_skills: "prompt.skills",

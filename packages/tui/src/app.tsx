@@ -199,7 +199,10 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
               targetFps: 60,
               gatherStats: false,
               exitOnCtrlC: false,
-              useKittyKeyboard: {},
+              // events: report key release, which hold-to-talk dictation needs.
+              // Release events dispatch on their own path in @opentui/keymap, so
+              // only bindings declaring event:"release" ever see them.
+              useKittyKeyboard: { events: true },
               autoFocus: false,
               openConsoleOnError: false,
               useMouse: !Flag.CROKCODE_DISABLE_MOUSE && input.config.mouse,

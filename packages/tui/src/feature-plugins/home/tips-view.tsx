@@ -13,6 +13,7 @@ type Shortcuts = {
   childNext: TipShortcut
   childPrevious: TipShortcut
   commandList: TipShortcut
+  dictate: TipShortcut
   editorOpen: TipShortcut
   helpShow: TipShortcut
   inputClear: TipShortcut
@@ -103,6 +104,7 @@ export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
     childNext: configShortcut(props.api, "session.child.next"),
     childPrevious: configShortcut(props.api, "session.child.previous"),
     commandList: useCommandShortcut("command.palette.show"),
+    dictate: useCommandShortcut("prompt.dictate"),
     editorOpen: useCommandShortcut("prompt.editor"),
     helpShow: useCommandShortcut("help.show"),
     inputClear: useCommandShortcut("prompt.clear"),
@@ -167,10 +169,11 @@ const TIPS: Tip[] = [
   (shortcuts) => press(shortcuts.agentCycle(), "to cycle between Build and Plan agents"),
   "Use {highlight}/undo{/highlight} to revert the last message and file changes",
   "Use {highlight}/redo{/highlight} to restore previously undone messages and file changes",
-  "Run {highlight}/share{/highlight} to create a public opencode.ai link",
+  "Run {highlight}/share{/highlight} to create a public link to this session",
   "Drag and drop images or PDFs into the terminal as context",
   (shortcuts) => press(shortcuts.inputPaste(), "to paste images from your clipboard into the prompt"),
   (shortcuts) => `Use ${commandText("/editor", shortcuts.editorOpen())} to compose messages in your external editor`,
+  (shortcuts) => press(shortcuts.dictate(), "to dictate into the prompt — speech is transcribed on-device"),
   "Run {highlight}/init{/highlight} to auto-generate project rules based on your codebase",
   (shortcuts) => `Use ${commandText("/models", shortcuts.modelList())} to switch between available AI models`,
   (shortcuts) => `Use ${commandText("/themes", shortcuts.themeList())} to switch between ${themeCount} built-in themes`,

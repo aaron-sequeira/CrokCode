@@ -66,6 +66,13 @@ function init() {
         setStore("currentToast", null)
       }, toastOptions.duration).unref()
     },
+    // For progress toasts that finish rather than expire — without this the
+    // last "…" message sits there for its full duration.
+    dismiss() {
+      if (timeoutHandle) clearTimeout(timeoutHandle)
+      timeoutHandle = null
+      setStore("currentToast", null)
+    },
     error: (err: any) => {
       if (err instanceof Error)
         return toast.show({
