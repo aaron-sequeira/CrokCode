@@ -46,3 +46,16 @@ test("a symlink pointing outside the workspace is rejected", () => {
   }
   expect(resolveWorkspaceFile(root, "link/secret.txt")).toEqual({ ok: false, reason: "escapes" })
 })
+
+test("a symlink to a directory with a nonexistent leaf is rejected", () => {
+  const root = workspace()
+  const outsideDir = mkdtempSync(path.join(tmpdir(), "crok-outside-"))
+  try {
+    symlinkSync(outsideDir, path.join(root, "evil"))
+  } catch {
+    return // Windows without developer mode cannot create symlinks; the other cases still cover confinement
+  }
+  // Requesting a file that does not exist yet inside the symlinked directory
+  // should still be rejected because the directory itself points outside
+  expect(resolveWorkspaceFile(root, "evil/newfile.txt")).toEqual({ ok: false, reason: "escapes" })
+})
