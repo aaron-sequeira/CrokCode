@@ -138,6 +138,8 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   // Bumped only when a renderable is attached, so the focus effect can re-run
   // for a buffer that did not exist when the effect last ran.
   const [attached, setAttached] = createSignal(0)
+  // ponytail: diagnostic readout for the folder toggle, rendered in the footer.
+  const [debug, setDebug] = createSignal("")
 
   // Native handles. Every renderable here owns one EditBuffer and one EditorView.
   const renderables = new Map<string, TextareaRenderable>()
@@ -266,12 +268,14 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     const file = rowPath(row)
     setExpandedPaths((current) => togglePath(current, file))
     // ponytail: diagnostic — collapse is reported broken while the pure toggle
-    // is proven correct in tests, so report what the click actually resolved to.
-    // Remove once a real run says which of the two is lying.
-    props.api.ui.toast({
-      variant: "info",
-      message: `toggle "${file}" → ${expandedPaths().has(file) ? "open" : "closed"} (${expandedPaths().size} open)`,
-    })
+    // is proven correct in tests. A toast cannot be seen from here (this route
+    // is an absolute overlay above the toast layer), so it goes in the footer.
+    // Remove once a real run says which side is lying.
+    setDebug(
+      `${row.kind}/${rowIsDirectory(row) ? "dir" : "file"} "${file}" → ${
+        expandedPaths().has(file) ? "OPEN" : "CLOSED"
+      } n=${expandedPaths().size} rows=${rows().length}`,
+    )
     if (!listed.has(file)) void listDirectory(file)
   }
 
@@ -887,6 +891,11 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
             </Show>
           )}
         </For>
+        <Show when={debug()}>
+          <text fg={theme().warning} wrapMode="none">
+            {debug()}
+          </text>
+        </Show>
       </box>
     </box>
   )
