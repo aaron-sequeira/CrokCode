@@ -68,6 +68,8 @@ import type {
   FileReadResponses,
   FileStatusErrors,
   FileStatusResponses,
+  FileWriteErrors,
+  FileWriteResponses,
   FindFilesErrors,
   FindFilesResponses,
   FindSymbolsErrors,
@@ -1841,6 +1843,7 @@ export class File extends HeyApiClient {
       directory?: string
       workspace?: string
       path: string
+      raw?: "true" | "false"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1852,6 +1855,7 @@ export class File extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "query", key: "path" },
+            { in: "query", key: "raw" },
           ],
         },
       ],
@@ -1873,6 +1877,7 @@ export class File extends HeyApiClient {
       directory?: string
       workspace?: string
       path: string
+      raw?: "true" | "false"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1884,6 +1889,7 @@ export class File extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "query", key: "path" },
+            { in: "query", key: "raw" },
           ],
         },
       ],
@@ -1892,6 +1898,45 @@ export class File extends HeyApiClient {
       url: "/file/content",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Write file
+   *
+   * Write content to a file inside the workspace.
+   */
+  public write<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      path?: string
+      content?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "path" },
+            { in: "body", key: "content" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<FileWriteResponses, FileWriteErrors, ThrowOnError>({
+      url: "/file/content",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

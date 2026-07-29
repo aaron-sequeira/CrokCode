@@ -10,6 +10,7 @@ import ignore from "ignore"
 import path from "path"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
+import { resolveWorkspaceFile } from "./file-path"
 
 export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handlers) =>
   Effect.gen(function* () {
@@ -126,6 +127,20 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       )
     })
 
+    const write = Effect.fn("FileHttpApi.write")(function* (ctx: {
+      payload: { path: string; content: string }
+    }) {
+      const directory = (yield* InstanceState.context).directory
+      const resolved = resolveWorkspaceFile(directory, ctx.payload.path)
+      if (!resolved.ok) return yield* Effect.die(new Error("Path escapes the workspace"))
+      yield* Effect.tryPromise({
+        try: () => Bun.write(resolved.absolute, ctx.payload.content),
+        catch: (cause) => new Error(`Could not write ${ctx.payload.path}`, { cause }),
+      }).pipe(Effect.orDie)
+      const stat = yield* Effect.sync(() => Bun.file(resolved.absolute).lastModified)
+      return { mtime: stat }
+    })
+
     const status = Effect.fn("FileHttpApi.status")(function* () {
       return []
     })
@@ -136,6 +151,7 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       .handle("findSymbol", findSymbol)
       .handle("list", list)
       .handle("content", content)
+      .handle("write", write)
       .handle("status", status)
   }),
 ).pipe(Layer.provide(locationServiceMapLayer))

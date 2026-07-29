@@ -2289,6 +2289,10 @@ export type FileContent = {
   mimeType?: string
 }
 
+export type FileWriteResult = {
+  mtime: number
+}
+
 export type File = {
   path: string
   added: number
@@ -7998,6 +8002,7 @@ export type FileListData = {
     directory?: string
     workspace?: string
     path: string
+    raw?: "true" | "false"
   }
   url: "/file"
 }
@@ -8027,6 +8032,7 @@ export type FileReadData = {
     directory?: string
     workspace?: string
     path: string
+    raw?: "true" | "false"
   }
   url: "/file/content"
 }
@@ -8048,6 +8054,37 @@ export type FileReadResponses = {
 }
 
 export type FileReadResponse = FileReadResponses[keyof FileReadResponses]
+
+export type FileWriteData = {
+  body?: {
+    path: string
+    content: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/file/content"
+}
+
+export type FileWriteErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type FileWriteError = FileWriteErrors[keyof FileWriteErrors]
+
+export type FileWriteResponses = {
+  /**
+   * Write result
+   */
+  200: FileWriteResult
+}
+
+export type FileWriteResponse = FileWriteResponses[keyof FileWriteResponses]
 
 export type FileStatusData = {
   body?: never

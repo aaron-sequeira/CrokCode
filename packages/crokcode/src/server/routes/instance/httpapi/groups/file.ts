@@ -86,6 +86,15 @@ export const LegacyContent = Schema.Struct({
   mimeType: Schema.optional(Schema.String),
 }).annotate({ identifier: "FileContent" })
 
+export const FileWritePayload = Schema.Struct({
+  path: Schema.String,
+  content: Schema.String,
+})
+
+export const FileWriteResult = Schema.Struct({
+  mtime: NonNegativeInt,
+}).annotate({ identifier: "FileWriteResult" })
+
 export const LegacyStatus = Schema.Struct({
   path: Schema.String,
   added: NonNegativeInt,
@@ -154,6 +163,17 @@ export const FileApi = HttpApi.make("file")
             identifier: "file.read",
             summary: "Read file",
             description: "Read the content of a specified file.",
+          }),
+        ),
+        HttpApiEndpoint.put("write", FilePaths.content, {
+          query: WorkspaceRoutingQuery,
+          payload: FileWritePayload,
+          success: described(FileWriteResult, "Write result"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "file.write",
+            summary: "Write file",
+            description: "Write content to a file inside the workspace.",
           }),
         ),
         HttpApiEndpoint.get("status", FilePaths.status, {

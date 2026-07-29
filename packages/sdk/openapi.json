@@ -2065,6 +2065,15 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "name": "raw",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -2131,6 +2140,15 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "name": "raw",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -2161,6 +2179,77 @@
           {
             "lang": "js",
             "source": "import { createCrokcodeClient } from \"@crokcode/sdk\n\nconst client = createCrokcodeClient()\nawait client.file.read({\n  ...\n})"
+          }
+        ]
+      },
+      "put": {
+        "tags": ["file"],
+        "operationId": "file.write",
+        "parameters": [
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Write result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileWriteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Write content to a file inside the workspace.",
+        "summary": "Write file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "required": ["path", "content"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createCrokcodeClient } from \"@crokcode/sdk\n\nconst client = createCrokcodeClient()\nawait client.file.write({\n  ...\n})"
           }
         ]
       }
@@ -8050,6 +8139,488 @@
           {
             "lang": "js",
             "source": "import { createCrokcodeClient } from \"@crokcode/sdk\n\nconst client = createCrokcodeClient()\nawait client.part.update({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/guard": {
+      "post": {
+        "tags": ["session"],
+        "operationId": "session.guard.scan",
+        "parameters": [
+          {
+            "name": "sessionID",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Guard scan result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "blocked",
+                        "warning",
+                        "accepted",
+                        "discarded",
+                        "reverted",
+                        "fixed",
+                        "safe",
+                        "unavailable"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": ["pre-write", "post-shell", "manual"]
+                    },
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "blocked",
+                              "warning",
+                              "accepted",
+                              "discarded",
+                              "reverted",
+                              "fixed",
+                              "safe",
+                              "unavailable"
+                            ]
+                          },
+                          "line": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["NaN"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["Infinity"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["-Infinity"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["Infinity", "-Infinity", "NaN"]
+                              }
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": ["critical", "warning"]
+                          },
+                          "confidence": {
+                            "type": "string",
+                            "enum": ["high", "medium"]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["secret", "execution", "injection", "rendering", "transport", "dependency"]
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "string"
+                          },
+                          "remediation": {
+                            "type": "string"
+                          },
+                          "resolution_reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule_id",
+                          "status",
+                          "severity",
+                          "confidence",
+                          "source",
+                          "file",
+                          "evidence",
+                          "remediation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "diff": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["file", "diff"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "dependency_audit": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["unavailable"]
+                        }
+                      },
+                      "required": ["status"],
+                      "additionalProperties": false
+                    },
+                    "before_snapshot": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "phase", "findings", "dependency_audit"],
+                  "additionalProperties": false,
+                  "description": "Guard scan result"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Scan current workspace changes with Guard.",
+        "summary": "Scan session workspace",
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createCrokcodeClient } from \"@crokcode/sdk\n\nconst client = createCrokcodeClient()\nawait client.session.guard.scan({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/message/{messageID}/part/{partID}/guard/{findingID}": {
+      "post": {
+        "tags": ["session"],
+        "operationId": "session.guard.resolve",
+        "parameters": [
+          {
+            "name": "sessionID",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses"
+            },
+            "required": true
+          },
+          {
+            "name": "messageID",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^msg"
+            },
+            "required": true
+          },
+          {
+            "name": "partID",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^prt"
+            },
+            "required": true
+          },
+          {
+            "name": "findingID",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "directory",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "workspace",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated Guard scan result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "blocked",
+                        "warning",
+                        "accepted",
+                        "discarded",
+                        "reverted",
+                        "fixed",
+                        "safe",
+                        "unavailable"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": ["pre-write", "post-shell", "manual"]
+                    },
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "rule_id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "blocked",
+                              "warning",
+                              "accepted",
+                              "discarded",
+                              "reverted",
+                              "fixed",
+                              "safe",
+                              "unavailable"
+                            ]
+                          },
+                          "line": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["NaN"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["Infinity"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["-Infinity"]
+                              },
+                              {
+                                "type": "string",
+                                "enum": ["Infinity", "-Infinity", "NaN"]
+                              }
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": ["critical", "warning"]
+                          },
+                          "confidence": {
+                            "type": "string",
+                            "enum": ["high", "medium"]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["secret", "execution", "injection", "rendering", "transport", "dependency"]
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "evidence": {
+                            "type": "string"
+                          },
+                          "remediation": {
+                            "type": "string"
+                          },
+                          "resolution_reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "rule_id",
+                          "status",
+                          "severity",
+                          "confidence",
+                          "source",
+                          "file",
+                          "evidence",
+                          "remediation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "diff": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["file", "diff"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "dependency_audit": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["unavailable"]
+                        }
+                      },
+                      "required": ["status"],
+                      "additionalProperties": false
+                    },
+                    "before_snapshot": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "phase", "findings", "dependency_audit"],
+                  "additionalProperties": false,
+                  "description": "Updated Guard scan result"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest | InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/effect_HttpApiError_BadRequest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InvalidRequestError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Accept, discard, or revert a Guard finding attached to a tool part.",
+        "summary": "Resolve Guard finding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["accept", "discard", "revert"]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["action"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createCrokcodeClient } from \"@crokcode/sdk\n\nconst client = createCrokcodeClient()\nawait client.session.guard.resolve({\n  ...\n})"
           }
         ]
       }
@@ -22326,6 +22897,17 @@
           }
         },
         "required": ["type", "content"],
+        "additionalProperties": false
+      },
+      "FileWriteResult": {
+        "type": "object",
+        "properties": {
+          "mtime": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["mtime"],
         "additionalProperties": false
       },
       "File": {
