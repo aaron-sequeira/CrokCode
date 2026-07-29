@@ -50,6 +50,65 @@ const RULES = [
   ["dependency.unreviewed-source", "warning", "Dependencies pulled from git, file or http"],
 ]
 
+const PENTEST = [
+  {
+    mark: "YOU DECLARE IT",
+    title: "It only touches what you name",
+    body: "The agent never picks a target. You give it a URL, it asks you to authorize that exact origin, and anything else is refused for the rest of the session.",
+  },
+  {
+    mark: "DRY RUN FIRST",
+    title: "See the probes before they fire",
+    body: "The first output is the plan — every request it intends to send, in order. Nothing leaves your machine until you say go.",
+  },
+  {
+    mark: "REAL TRAFFIC",
+    title: "Not a linter with opinions",
+    body: "Crafted requests hit your running app and the agent reads the actual responses. That is how it finds an IDOR that only exists once the session cookie is real.",
+  },
+  {
+    mark: "YOUR TOOLS",
+    title: "Drives nuclei and sqlmap",
+    body: "If they are already on your PATH it uses them and reasons over the output. It never installs a scanner behind your back.",
+  },
+]
+
+const LOCAL = [
+  {
+    mark: "OLLAMA",
+    title: "Detected, not configured",
+    body: "If Ollama is running, every model you have pulled shows up in the model picker under its own provider. No config file, no base URL to paste.",
+  },
+  {
+    mark: "OFFLINE",
+    title: "No key, no account, no bill",
+    body: "Point CrokCode at a local model and nothing leaves the machine — not the prompt, not the diff, not a telemetry ping.",
+  },
+  {
+    mark: "SAME AGENT",
+    title: "All the tools still work",
+    body: "Local models get the same edit, shell, LSP and search tools as the frontier ones, and Guard scans their diffs exactly the same way.",
+  },
+]
+
+const VOICE = [
+  {
+    mark: "HOLD OR TAP",
+    title: "Push-to-talk that knows the difference",
+    body: "Hold the key and talk, release and it transcribes. Tap it instead and recording latches on until you tap again. Rebindable like every other key.",
+  },
+  {
+    mark: "ON DEVICE",
+    title: "whisper.cpp, locally",
+    body: "The model runs on your machine. Your voice is never uploaded, to us or to anyone — there is no transcription API in the loop.",
+  },
+  {
+    mark: "AT THE CURSOR",
+    title: "Straight into the prompt",
+    body: "The transcript lands where your cursor is, so you can talk the paragraph and type the file path. Nothing is sent until you hit enter.",
+  },
+]
+
 const MODELS = [
   ["GPT-5.6 Sol", "openai/gpt-5.6-sol"],
   ["Claude Opus 4.8", "anthropic/claude-opus-4.8"],
@@ -105,7 +164,7 @@ const FAQ = [
   ],
   [
     "Do I have to use CrokAPI?",
-    "No. CrokCode is a fork of crokcode and keeps every provider it supports, so your own Anthropic, OpenAI, Google, OpenRouter or local model keys work as they always did. CrokAPI is there if you would rather pay one bill and skip key management.",
+    "No. CrokCode is a fork of opencode and keeps every provider it supports, so your own Anthropic, OpenAI, Google, OpenRouter or local model keys work as they always did. CrokAPI is there if you would rather pay one bill and skip key management.",
   ],
   [
     "What does Guard actually check?",
@@ -118,6 +177,18 @@ const FAQ = [
   [
     "Does CrokCode send my code anywhere?",
     "Only to the model provider you pick, the same as any coding agent. Guard itself runs locally and deterministically, with no model call and no telemetry on your source.",
+  ],
+  [
+    "Is the pentest tool safe to point at my app?",
+    "It is only ever pointed where you point it. The agent cannot choose a target: you supply the URL, CrokCode asks you to authorize that exact origin, and every request to anything else is refused for the rest of the session. The first run is a dry run that lists the probes without sending them, and there is a hard cap on request volume so it cannot hammer your staging box. Use it on systems you own or are authorized to test.",
+  ],
+  [
+    "Does dictation send my voice to a server?",
+    "No. Recording and transcription both happen on your machine — whisper.cpp runs locally and the model is downloaded once on first use. There is no transcription API involved, so there is nothing to leak and nothing to opt out of.",
+  ],
+  [
+    "Can I use local models instead of a provider?",
+    "Yes. Run Ollama and your pulled models appear in the picker automatically, grouped under their own provider, with no key and no account. They get the same tools and the same Guard scanning as any hosted model.",
   ],
   [
     "Which platforms are supported?",
@@ -152,8 +223,10 @@ export function Landing() {
           </Link>
           <nav className="nav-links">
             <a href="#guard">Guard</a>
+            <a href="#pentest">Pentest</a>
             <a href="#features">Features</a>
             <a href="#models">Models</a>
+            <a href="#voice">Voice</a>
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
           </nav>
@@ -174,7 +247,7 @@ export function Landing() {
             </h1>
             <p className="lede">
               CrokCode writes code with any model you like, then refuses to write a secret to disk. Open source,
-              terminal-first, and built on crokcode.
+              terminal-first, and built on opencode.
             </p>
 
             <div className="os-tabs">
@@ -260,12 +333,66 @@ export function Landing() {
           </div>
         </section>
 
+        {/* pentest */}
+        <section id="pentest" className="band">
+          <div className="wrap">
+            <div className="section-head">
+              <div className="eyebrow">Pentest</div>
+              <h2>It attacks your app, on purpose</h2>
+              <p className="lede">
+                Guard reads the diff. Pentest goes further — you point it at your own running app and it sends real
+                attack traffic, then reports what actually got through. Every other agent guesses from source. This one
+                knocks.
+              </p>
+            </div>
+
+            <div className="term">
+              <div className="term-bar">
+                <span style={{ color: "var(--croc)" }}>●</span> crokcode — pentest
+              </div>
+              <div className="term-body">
+                <div className="term-dim">◆ pentest http://localhost:3000 — dry run</div>
+                <div className="term-dim">18 probes planned · idor, authz, injection, headers</div>
+                <div>
+                  <span className="term-add">▣ Authorize http://localhost:3000 for this session?</span>
+                </div>
+                <div className="finding-keys">
+                  <span className="key key-on">Y Authorize</span>
+                  <span className="key">N Cancel</span>
+                </div>
+
+                <div className="finding" style={{ marginTop: 20 }}>
+                  <div className="finding-head">
+                    ▣ Finding · High <span>idor · broken object access</span>
+                  </div>
+                  <div style={{ marginTop: 8 }}>GET /api/orders/1042 returns another account's order</div>
+                  <div className="term-dim" style={{ fontSize: 12 }}>
+                    authenticated as user 7 · expected 403, got 200
+                  </div>
+                </div>
+
+                <div className="term-dim">41 requests sent to localhost:3000. No other host was contacted.</div>
+              </div>
+            </div>
+
+            <div className="grid grid-2" style={{ marginTop: 28 }}>
+              {PENTEST.map((item) => (
+                <div className="cell" key={item.mark}>
+                  <span className="cell-mark">{item.mark}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* features */}
         <section id="features" className="band">
           <div className="wrap">
             <div className="section-head">
               <div className="eyebrow">What it is</div>
-              <h2>Everything crokcode does, plus a security layer</h2>
+              <h2>Everything opencode does, plus a security layer</h2>
               <p className="lede">
                 CrokCode is a fork, not a rewrite. Every provider, agent and integration carries over. Guard, the
                 theme and CrokAPI are what we added.
@@ -299,6 +426,72 @@ export function Landing() {
                 <div className="model" key={id}>
                   <b>{name}</b>
                   <span>{id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* local models */}
+        <section id="local" className="band">
+          <div className="wrap">
+            <div className="section-head">
+              <div className="eyebrow">Local models</div>
+              <h2>Or run the whole thing on your own machine</h2>
+              <p className="lede">
+                Start Ollama and CrokCode finds it. Your local models appear in the picker beside the hosted ones, with
+                the same tools and the same Guard — the only difference is that nothing leaves the laptop.
+              </p>
+            </div>
+            <div className="grid grid-3">
+              {LOCAL.map((item) => (
+                <div className="cell" key={item.mark}>
+                  <span className="cell-mark">{item.mark}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* voice */}
+        <section id="voice" className="band">
+          <div className="wrap">
+            <div className="section-head">
+              <div className="eyebrow">Voice</div>
+              <h2>Talk to it. Nothing is uploaded.</h2>
+              <p className="lede">
+                Hold <span className="key">ctrl+alt+v</span> and describe what you want. Speech is transcribed on-device by whisper.cpp
+                and dropped at your cursor in the prompt — dictation that works on a plane, in a locked-down repo, or
+                anywhere you would not paste your voice into someone's API.
+              </p>
+            </div>
+
+            <div className="term">
+              <div className="term-bar">
+                <span style={{ color: "var(--croc)" }}>●</span> crokcode — prompt
+              </div>
+              <div className="term-body">
+                <div>
+                  <span className="term-add">▐█▌▃▅█</span>{" "}
+                  <span className="term-dim">hearing you 0:06 · ctrl+alt+v stop</span>
+                </div>
+                <div className="term-dim">◆ transcribing…</div>
+                <div>
+                  &gt; refactor the session store so the cache key includes the workspace id
+                  <span style={{ color: "var(--croc)" }}>▌</span>
+                </div>
+                <div className="term-dim">Transcribed locally. No audio left this machine.</div>
+              </div>
+            </div>
+
+            <div className="grid grid-3" style={{ marginTop: 28 }}>
+              {VOICE.map((item) => (
+                <div className="cell" key={item.mark}>
+                  <span className="cell-mark">{item.mark}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
                 </div>
               ))}
             </div>
@@ -386,7 +579,7 @@ export function Landing() {
           <a href="#guard">Guard</a>
           <a href="#pricing">Pricing</a>
           <Link to="/app">Console</Link>
-          <a href="https://github.com/anomalyco/crokcode">GitHub</a>
+          <a href="https://github.com/aaron-sequeira/crokcode">GitHub</a>
         </div>
       </footer>
     </>
