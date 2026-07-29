@@ -15,6 +15,10 @@ type Shortcuts = {
   commandList: TipShortcut
   dictate: TipShortcut
   editorOpen: TipShortcut
+  filesOpen: TipShortcut
+  filesSave: TipShortcut
+  filesFocus: TipShortcut
+  filesClose: TipShortcut
   helpShow: TipShortcut
   inputClear: TipShortcut
   inputNewline: TipShortcut
@@ -106,6 +110,10 @@ export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
     commandList: useCommandShortcut("command.palette.show"),
     dictate: useCommandShortcut("prompt.dictate"),
     editorOpen: useCommandShortcut("prompt.editor"),
+    filesOpen: useCommandShortcut("editor.open"),
+    filesSave: useCommandShortcut("editor.save"),
+    filesFocus: useCommandShortcut("editor.focus.next"),
+    filesClose: useCommandShortcut("editor.close"),
     helpShow: useCommandShortcut("help.show"),
     inputClear: useCommandShortcut("prompt.clear"),
     inputNewline: useCommandShortcut("input.newline"),
@@ -174,6 +182,10 @@ const TIPS: Tip[] = [
   (shortcuts) => press(shortcuts.inputPaste(), "to paste images from your clipboard into the prompt"),
   (shortcuts) => `Use ${commandText("/editor", shortcuts.editorOpen())} to compose messages in your external editor`,
   (shortcuts) => press(shortcuts.dictate(), "to dictate into the prompt — speech is transcribed on-device"),
+  (shortcuts) => `Use ${commandText("/files", shortcuts.filesOpen())} to browse and edit files without leaving the session`,
+  (shortcuts) =>
+    `In the file editor: ${shortcuts.filesFocus()} moves between tree and text, ${shortcuts.filesSave()} saves, ${shortcuts.filesClose()} leaves`,
+  "In the file editor, click a folder to open it and click again to close it",
   "Run {highlight}/init{/highlight} to auto-generate project rules based on your codebase",
   (shortcuts) => `Use ${commandText("/models", shortcuts.modelList())} to switch between available AI models`,
   (shortcuts) => `Use ${commandText("/themes", shortcuts.themeList())} to switch between ${themeCount} built-in themes`,

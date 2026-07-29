@@ -311,7 +311,14 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
       const next = toggleFileTreeDirectory(tree(), expandedNodes(), row.id)
       setExpandedPaths(new Set([...next].map((id) => nodePath(tree(), deepestCollapsed(tree(), id)))))
     } else {
-      setExpandedPaths((current) => new Set(current).add(file))
+      // A directory nobody has listed yet is still a leaf, so it builds a
+      // file-kind node and never reaches toggleFileTreeDirectory above. Adding
+      // without the matching remove made those folders open-only.
+      setExpandedPaths((current) => {
+        const next = new Set(current)
+        if (!next.delete(file)) next.add(file)
+        return next
+      })
     }
     if (!listed.has(file)) void listDirectory(file)
   }
@@ -589,7 +596,12 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   // out. Which group is live is still a component decision: the single-letter
   // tree and banner keys are only offered when the text buffer does not hold
   // focus, otherwise they would eat the user's typing.
-  const gather = (names: readonly string[]) => props.api.tuiConfig.keybinds.gather("editor", names)
+  // gather MEMOISES BY NAME: the first call for a name wins and every later call
+  // with that name gets the same array back, whatever commands it asked for. So
+  // each group needs its own name. Sharing one name silently dropped the chrome
+  // keys — no escape, no ctrl+q, no save — and pinned the tree keys on, so space
+  // toggled a folder instead of typing a space.
+  const gather = (name: string, names: readonly string[]) => props.api.tuiConfig.keybinds.gather(name, names)
 
   useBindings(() => ({
     commands,
@@ -597,9 +609,13 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     // the same reason the dialog prompt raises its priority.
     priority: 1,
     bindings: [
-      ...(focus() === "tree" && !conflict() ? gather(["editor.down", "editor.up", "editor.toggle"]) : []),
-      ...(conflict() ? gather(["editor.conflict.keep", "editor.conflict.take", "editor.conflict.diff"]) : []),
-      ...gather(["editor.save", "editor.focus.next", "editor.back", "editor.close"]),
+      ...(focus() === "tree" && !conflict()
+        ? gather("editor.tree", ["editor.down", "editor.up", "editor.toggle"])
+        : []),
+      ...(conflict()
+        ? gather("editor.conflict", ["editor.conflict.keep", "editor.conflict.take", "editor.conflict.diff"])
+        : []),
+      ...gather("editor", ["editor.save", "editor.focus.next", "editor.back", "editor.close"]),
     ],
   }))
 
