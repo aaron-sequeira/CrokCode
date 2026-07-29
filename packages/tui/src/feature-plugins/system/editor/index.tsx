@@ -8,23 +8,23 @@ import { useProject } from "../../../context/project"
 import { useSDK } from "../../../context/sdk"
 import { useBindings, useCommandShortcut } from "../../../keymap"
 import { Locale } from "../../../util/locale"
-import {
-  buildFileTree,
-  flattenFileTree,
-  moveFileTreeSelection,
-  toggleFileTreeDirectory,
-  type FileTree,
-  type FileTreeNode,
-  type FileTreeRow,
-} from "../file-tree-utils"
+import { flattenFileTree, moveFileTreeSelection, type FileTreeRow } from "../file-tree-utils"
 import { beforeSave, isDirty, onExternalChange, type BufferState } from "./buffer"
+import {
+  buildTree,
+  directoryMarkers,
+  expandedNodeIds,
+  rowExpansionPath,
+  togglePath,
+  withoutStaleMarkers,
+  DIRECTORY_MARK,
+} from "./expand"
 import { mergeEntries, treeItems, type DirectoryEntry } from "./tree-source"
 
 const ROUTE = "editor"
 const DIFF_ROUTE = "diff"
 const TREE_WIDTH = 30
 const GUTTER_MIN_WIDTH = 4
-const DIRECTORY_MARK = "/"
 /** Header row, footer row, and the two rows the pane borders take. */
 const CHROME_ROWS = 4
 /** Top border, headline, the row of choices, bottom border. */
@@ -106,48 +106,9 @@ function scrollRowIntoView(scroll: ScrollBoxRenderable | undefined, index: numbe
 // something the (diff-shaped) tree utilities can render.
 // ---------------------------------------------------------------------------
 
-function directoryMarkers(paths: readonly string[]) {
-  return new Set(paths.filter((item) => item.endsWith(DIRECTORY_MARK)).map((item) => item.slice(0, -1)))
-}
 
-/**
- * A directory keeps its marker only until its children arrive. Left in place
- * afterwards, `treeItems` would strip the slash and `buildFileTree` would grow a
- * second, file-kind node sitting next to the real directory node.
- */
-function withoutStaleMarkers(paths: readonly string[]) {
-  const ancestors = new Set<string>()
-  for (const item of paths) {
-    const base = item.endsWith(DIRECTORY_MARK) ? item.slice(0, -1) : item
-    const segments = base.split("/")
-    for (let index = 1; index < segments.length; index++) ancestors.add(segments.slice(0, index).join("/"))
-  }
-  return paths.filter((item) => !(item.endsWith(DIRECTORY_MARK) && ancestors.has(item.slice(0, -1))))
-}
 
-function nodePath(tree: FileTree, id: number) {
-  const segments: string[] = []
-  let current: number | undefined = id
-  while (current !== undefined) {
-    const node: FileTreeNode | undefined = tree.nodes[current]
-    if (!node) break
-    segments.unshift(node.name)
-    current = node.parent
-  }
-  return segments.join("/")
-}
 
-/**
- * `flattenFileTree` collapses `a/b/c` into a single row keyed by `a`, and shows
- * the children of `c`. The path to list, and the path whose expansion the row
- * controls, is that deepest link.
- */
-function deepestCollapsed(tree: FileTree, id: number): number {
-  const node = tree.nodes[id]
-  if (!node || node.kind !== "directory" || node.children.length !== 1) return id
-  const child = tree.nodes[node.children[0]!]
-  return child?.kind === "directory" ? deepestCollapsed(tree, child.id) : id
-}
 
 function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   const sdk = useSDK()
@@ -217,25 +178,15 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     renderables.clear()
   })
 
-  const items = createMemo(() => treeItems(withoutStaleMarkers(paths())))
+  
   const markers = createMemo(() => directoryMarkers(paths()))
-  const tree = createMemo(() => buildFileTree(items()))
-  const expandedNodes = createMemo(() => {
-    const wanted = expandedPaths()
-    const current = tree()
-    const result = new Set<number>()
-    for (const node of current.nodes) {
-      if (node.kind !== "directory") continue
-      if (wanted.has(nodePath(current, deepestCollapsed(current, node.id)))) result.add(node.id)
-    }
-    return result
-  })
+  const items = createMemo(() => treeItems(withoutStaleMarkers(paths())))
+  const tree = createMemo(() => buildTree(paths()))
+  const expandedNodes = createMemo(() => expandedNodeIds(tree(), expandedPaths()))
   const rows = createMemo(() => flattenFileTree(tree(), expandedNodes()))
 
   const rowPath = (row: FileTreeRow) =>
-    row.fileIndex !== undefined
-      ? (items()[row.fileIndex]?.file ?? row.name)
-      : nodePath(tree(), deepestCollapsed(tree(), row.id))
+    row.fileIndex !== undefined ? (items()[row.fileIndex]?.file ?? row.name) : rowExpansionPath(tree(), row.id)
   // A directory nobody has listed yet arrives as a marker, so it builds a
   // file-kind node. The marker set is the authority on what is a directory.
   const rowIsDirectory = (row: FileTreeRow) => row.kind === "directory" || markers().has(rowPath(row))
@@ -304,22 +255,14 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     }
   }
 
+  // Expansion is tracked by path, so toggle by path. The old code toggled a node
+  // id and then re-derived the whole set from the survivors, which cannot work:
+  // flattenFileTree collapses a/b/c into one row, so nodes a, b and c all map to
+  // that single row path. Dropping one id left the other two to put the path
+  // straight back, and the folder reopened the instant it closed.
   const toggleDirectory = (row: FileTreeRow) => {
     const file = rowPath(row)
-    const node = tree().nodes[row.id]
-    if (node?.kind === "directory") {
-      const next = toggleFileTreeDirectory(tree(), expandedNodes(), row.id)
-      setExpandedPaths(new Set([...next].map((id) => nodePath(tree(), deepestCollapsed(tree(), id)))))
-    } else {
-      // A directory nobody has listed yet is still a leaf, so it builds a
-      // file-kind node and never reaches toggleFileTreeDirectory above. Adding
-      // without the matching remove made those folders open-only.
-      setExpandedPaths((current) => {
-        const next = new Set(current)
-        if (!next.delete(file)) next.add(file)
-        return next
-      })
-    }
+    setExpandedPaths((current) => togglePath(current, file))
     if (!listed.has(file)) void listDirectory(file)
   }
 
@@ -494,10 +437,17 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
 
   const leave = () => {
     const returnRoute = params()?.returnRoute
-    props.api.route.navigate(
-      returnRoute?.name ?? "home",
-      returnRoute && "params" in returnRoute ? returnRoute.params : undefined,
-    )
+    // Opening the editor from inside the editor stores the editor as its own
+    // return route, which would navigate right back here and trap the user.
+    const name = returnRoute && returnRoute.name !== ROUTE ? returnRoute.name : "home"
+    const routeParams = returnRoute && name === returnRoute.name && "params" in returnRoute
+      ? returnRoute.params
+      : undefined
+    // ponytail: diagnostic — the exit path is reported as not working and
+    // nothing in the code explains it, so say out loud what we are doing.
+    // Remove once a real run confirms which half is at fault.
+    props.api.ui.toast({ variant: "info", message: `Leaving editor → ${name}` })
+    props.api.route.navigate(name, routeParams)
   }
 
   const commands = [
@@ -531,6 +481,18 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
       category: "Editor",
       run() {
         void save()
+      },
+    },
+    {
+      name: "editor.newline",
+      title: "Insert a newline",
+      category: "Editor",
+      run() {
+        const file = activeFile()
+        const renderable = file ? renderables.get(file) : undefined
+        if (!renderable || renderable.isDestroyed) return
+        renderable.insertText("\n")
+        setRevision((value) => value + 1)
       },
     },
     {
@@ -615,6 +577,9 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
       ...(conflict()
         ? gather("editor.conflict", ["editor.conflict.keep", "editor.conflict.take", "editor.conflict.diff"])
         : []),
+      // Only while the buffer has focus, so the tree's own enter still opens a
+      // file rather than typing into whatever was last open.
+      ...(focus() === "editor" && !conflict() ? gather("editor.buffer", ["editor.newline"]) : []),
       ...gather("editor", ["editor.save", "editor.focus.next", "editor.back", "editor.close"]),
     ],
   }))

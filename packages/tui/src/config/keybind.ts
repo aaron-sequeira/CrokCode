@@ -80,6 +80,9 @@ export const Definitions = {
   editor_save: keybind("ctrl+s", "Save the open file"),
   editor_focus_next: keybind("tab", "Move focus between tree and editor"),
   editor_back: keybind("escape", "Go back one step in the editor"),
+  // The managed textarea layer binds plain return to input.submit, which is
+  // right for the prompt and wrong for a text editor. This wins it back.
+  editor_newline: keybind("return", "Insert a newline in the editor"),
   editor_close: keybind("ctrl+q", "Leave the editor"),
   editor_down: keybind("j,down", "Move down in the editor file tree"),
   editor_up: keybind("k,up", "Move up in the editor file tree"),
@@ -305,6 +308,7 @@ export const CommandMap = {
   editor_save: "editor.save",
   editor_focus_next: "editor.focus.next",
   editor_back: "editor.back",
+  editor_newline: "editor.newline",
   editor_close: "editor.close",
   editor_down: "editor.down",
   editor_up: "editor.up",
