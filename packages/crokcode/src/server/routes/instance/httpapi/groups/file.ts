@@ -84,6 +84,12 @@ export const LegacyContent = Schema.Struct({
   ),
   encoding: Schema.optional(Schema.Literal("base64")),
   mimeType: Schema.optional(Schema.String),
+  /**
+   * Disk mtime as of this read, from the same clock `write` reports, so a caller
+   * can tell whether the file moved underneath it before writing. Optional so
+   * existing consumers of this endpoint are unaffected.
+   */
+  mtime: Schema.optional(NonNegativeInt),
 }).annotate({ identifier: "FileContent" })
 
 export const FileWritePayload = Schema.Struct({

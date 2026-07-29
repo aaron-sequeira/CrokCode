@@ -24,6 +24,20 @@ function request(route: string, directory: string, query?: Record<string, string
   )
 }
 
+function writeRequest(directory: string, body: { path: string; content: string }) {
+  return HttpApiApp.webHandler().handler(
+    new Request(new URL(`http://localhost${FilePaths.content}`), {
+      method: "PUT",
+      headers: {
+        "x-crokcode-directory": directory,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }),
+    context,
+  )
+}
+
 afterEach(async () => {
   await disposeAllInstances()
   await resetDatabase()
@@ -50,6 +64,35 @@ describe("file HttpApi", () => {
 
     expect(status.status).toBe(200)
     expect(await status.json()).toEqual([])
+  })
+
+  test("read reports the mtime write stamps, so a client can guard a stale save", async () => {
+    await using tmp = await tmpdir({ git: true })
+    await Bun.write(path.join(tmp.path, "hello.txt"), "hello")
+
+    const before = await (await request(FilePaths.content, tmp.path, { path: "hello.txt" })).json()
+    expect(typeof before.mtime).toBe("number")
+    expect(before.mtime).toBeGreaterThan(0)
+
+    const written = await (await writeRequest(tmp.path, { path: "hello.txt", content: "goodbye" })).json()
+    const after = await (await request(FilePaths.content, tmp.path, { path: "hello.txt" })).json()
+
+    // Both endpoints stamp from the same clock, so a read taken straight after a
+    // write sees exactly the write's mtime. That is what makes the editor's
+    // beforeSave comparison meaningful instead of a guess.
+    expect(after.content).toBe("goodbye")
+    expect(after.mtime).toBe(written.mtime)
+  })
+
+  test("read reports an mtime for binary files too", async () => {
+    await using tmp = await tmpdir({ git: true })
+    await Bun.write(path.join(tmp.path, "blob.bin"), new Uint8Array([0, 1, 2, 3]))
+
+    const content = await (await request(FilePaths.content, tmp.path, { path: "blob.bin" })).json()
+
+    expect(content.type).toBe("binary")
+    expect(typeof content.mtime).toBe("number")
+    expect(content.mtime).toBeGreaterThan(0)
   })
 
   test("serves search endpoints", async () => {

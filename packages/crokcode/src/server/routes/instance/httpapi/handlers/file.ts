@@ -101,6 +101,9 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       const file = path.resolve(directory, ctx.query.path)
       if (!FSUtil.contains(directory, file)) return yield* Effect.die(new Error("Path escapes the location"))
       if (!(yield* FSUtil.Service.use((fs) => fs.existsSafe(file)))) return { type: "text" as const, content: "" }
+      // Same clock the write handler stamps its result with, so a caller can
+      // compare the two and refuse to overwrite a file that moved since it read.
+      const mtime = yield* Effect.sync(() => Bun.file(file).lastModified)
       return yield* filesystem(
         FileSystem.Service.use((fs) => fs.read({ path: RelativePath.make(ctx.query.path) })),
       ).pipe(
@@ -116,12 +119,13 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
         ),
         Effect.map(({ item, text }) =>
           Option.isSome(text)
-            ? { type: "text" as const, content: ctx.query.raw === "true" ? text.value : text.value.trim() }
+            ? { type: "text" as const, content: ctx.query.raw === "true" ? text.value : text.value.trim(), mtime }
             : {
                 type: "binary" as const,
                 content: Buffer.from(item.content).toString("base64"),
                 encoding: "base64" as const,
                 mimeType: item.mime,
+                mtime,
               },
         ),
       )

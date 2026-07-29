@@ -2,7 +2,6 @@
 import type { TuiPlugin, TuiPluginApi, TuiRouteCurrent } from "@crokcode/plugin/tui"
 import type { MouseEvent, TextareaRenderable } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/solid"
-import { statSync } from "node:fs"
 import path from "path"
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { useProject } from "../../../context/project"
@@ -82,16 +81,6 @@ function deepestCollapsed(tree: FileTree, id: number): number {
   return child?.kind === "directory" ? deepestCollapsed(tree, child.id) : id
 }
 
-/** 0 means "unknown", which compares equal to itself and so never blocks a save. */
-function diskMtime(absolute: string | undefined) {
-  if (!absolute) return 0
-  try {
-    return statSync(absolute).mtimeMs
-  } catch {
-    return 0
-  }
-}
-
 function EditorRoute(props: { api: TuiPluginApi }) {
   const sdk = useSDK()
   const project = useProject()
@@ -152,9 +141,6 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   // file-kind node. The marker set is the authority on what is a directory.
   const rowIsDirectory = (row: FileTreeRow) => row.kind === "directory" || markers().has(rowPath(row))
   const selectedRow = createMemo(() => rows().find((row) => rowPath(row) === selectedPath()))
-
-  const absoluteOf = (file: string) =>
-    absolutePaths.get(file) ?? path.resolve(props.api.state.path.directory ?? ".", file)
 
   const dirty = createMemo(() => {
     revision()
@@ -225,11 +211,17 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   // Buffers
   // -------------------------------------------------------------------------
 
+  /**
+   * The read endpoint stamps `mtime` from the same clock the write endpoint
+   * reports, so the two can be compared. A server that omits it leaves the
+   * timestamp unknown — `0` compares equal to itself and so never invents a
+   * conflict, it only means this save is unguarded.
+   */
   const readFromDisk = async (file: string) => {
     const result = await sdk.client.file.read({ path: file, raw: "true", workspace: workspace() })
     if (result.error || !result.data) return undefined
     if (result.data.type !== "text") return undefined
-    return { text: result.data.content, mtime: diskMtime(absoluteOf(file)) }
+    return { text: result.data.content, mtime: result.data.mtime ?? 0 }
   }
 
   const openFile = async (file: string) => {
@@ -261,8 +253,15 @@ function EditorRoute(props: { api: TuiPluginApi }) {
     const renderable = file ? renderables.get(file) : undefined
     const state = file ? states().get(file) : undefined
     if (!file || !renderable || !state || renderable.isDestroyed) return
-    if (beforeSave(state, { mtime: diskMtime(absoluteOf(file)) }).action === "conflict") {
-      await raiseConflict(file)
+    // The mtime to compare against only exists on disk, so read before writing.
+    // The same snapshot then feeds the banner, so a conflict costs no extra read.
+    const disk = await readFromDisk(file)
+    if (!disk) {
+      props.api.ui.toast({ variant: "error", message: `Could not save ${file}` })
+      return
+    }
+    if (beforeSave(state, { mtime: disk.mtime }).action === "conflict") {
+      setConflict({ file, text: disk.text, mtime: disk.mtime })
       return
     }
     const content = renderable.plainText
@@ -273,12 +272,6 @@ function EditorRoute(props: { api: TuiPluginApi }) {
     }
     setState(file, { savedText: content, mtime: result.data.mtime })
     setRevision((value) => value + 1)
-  }
-
-  const raiseConflict = async (file: string) => {
-    const disk = await readFromDisk(file)
-    if (!disk) return
-    setConflict({ file, text: disk.text, mtime: disk.mtime })
   }
 
   const applyExternalChange = async (file: string) => {

@@ -2287,6 +2287,7 @@ export type FileContent = {
   }
   encoding?: "base64"
   mimeType?: string
+  mtime?: number
 }
 
 export type FileWriteResult = {
