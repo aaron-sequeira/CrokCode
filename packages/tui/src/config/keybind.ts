@@ -74,7 +74,12 @@ export const Definitions = {
   diff_toggle_view: keybind("v", "Toggle diff viewer split or unified view"),
   diff_help: keybind("?", "Show more diff viewer shortcuts"),
 
-  editor_open: keybind("<leader>e", "Open external editor"),
+  // The editor's own keys only bind inside the editor route's keymap layer;
+  // editor_open is the one that works from anywhere.
+  editor_open: keybind("ctrl+o", "Open the file tree and editor"),
+  editor_save: keybind("ctrl+s", "Save the open file"),
+  editor_focus_next: keybind("tab", "Move focus between tree and editor"),
+  editor_close: keybind("ctrl+q", "Leave the editor"),
   theme_list: keybind("<leader>t", "List available themes"),
   theme_switch_mode: keybind("none", "Switch between light and dark theme mode"),
   theme_mode_lock: keybind("none", "Lock or unlock theme mode"),
@@ -289,7 +294,10 @@ export const CommandMap = {
   diff_switch_source: "diff.switch_source",
   diff_toggle_view: "diff.toggle_view",
   diff_help: "diff.help",
-  editor_open: "prompt.editor",
+  editor_open: "editor.open",
+  editor_save: "editor.save",
+  editor_focus_next: "editor.focus.next",
+  editor_close: "editor.close",
   theme_list: "theme.switch",
   theme_switch_mode: "theme.switch_mode",
   theme_mode_lock: "theme.mode.lock",
