@@ -932,7 +932,9 @@ const tui: TuiPlugin = async (api) => {
       {
         name: "editor.open",
         title: "Open the file editor",
-        slashName: "editor",
+        // Not "editor" — prompt.editor already owns that slash name for the
+        // external $EDITOR, and two commands answering /editor is a coin toss.
+        slashName: "files",
         category: "Editor",
         namespace: "palette",
         run() {
