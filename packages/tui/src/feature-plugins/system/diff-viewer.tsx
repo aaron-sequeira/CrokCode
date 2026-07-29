@@ -33,7 +33,7 @@ import {
   showDiffViewerFileTree,
   singlePatchFileIndex,
   toggleFileTreeDirectory,
-} from "./diff-viewer-file-tree-utils"
+} from "./file-tree-utils"
 
 const ROUTE = "diff"
 const MIN_SPLIT_WIDTH = 100

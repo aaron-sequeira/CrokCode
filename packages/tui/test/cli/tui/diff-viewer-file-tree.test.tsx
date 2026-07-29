@@ -12,7 +12,7 @@ import { TestTuiContexts } from "../../fixture/tui-environment"
 import {
   allExpandedFileTreeDirectories,
   buildFileTree,
-} from "../../../src/feature-plugins/system/diff-viewer-file-tree-utils"
+} from "../../../src/feature-plugins/system/file-tree-utils"
 
 const theme = {
   background: RGBA.fromHex("#000000"),
