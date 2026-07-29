@@ -15,6 +15,16 @@ import { described } from "./metadata"
 export const FileQuery = Schema.Struct({
   ...WorkspaceRoutingQueryFields,
   path: Schema.String,
+})
+
+/**
+ * `raw` is only meaningful to the read endpoint. Sharing one schema with `list`
+ * made the SDK advertise a parameter that handler ignores, so the two endpoints
+ * keep separate schemas.
+ */
+export const FileReadQuery = Schema.Struct({
+  ...WorkspaceRoutingQueryFields,
+  path: Schema.String,
   raw: Schema.optional(Schema.Literals(["true", "false"])),
 })
 
@@ -162,7 +172,7 @@ export const FileApi = HttpApi.make("file")
           }),
         ),
         HttpApiEndpoint.get("content", FilePaths.content, {
-          query: FileQuery,
+          query: FileReadQuery,
           success: described(LegacyContent, "File content"),
         }).annotateMerge(
           OpenApi.annotations({

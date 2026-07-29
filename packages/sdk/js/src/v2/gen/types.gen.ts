@@ -8003,7 +8003,6 @@ export type FileListData = {
     directory?: string
     workspace?: string
     path: string
-    raw?: "true" | "false"
   }
   url: "/file"
 }

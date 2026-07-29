@@ -1843,7 +1843,6 @@ export class File extends HeyApiClient {
       directory?: string
       workspace?: string
       path: string
-      raw?: "true" | "false"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1855,7 +1854,6 @@ export class File extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "query", key: "path" },
-            { in: "query", key: "raw" },
           ],
         },
       ],

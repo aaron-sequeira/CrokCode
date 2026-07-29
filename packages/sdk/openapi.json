@@ -2065,15 +2065,6 @@
               "type": "string"
             },
             "required": true
-          },
-          {
-            "name": "raw",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": ["true", "false"]
-            },
-            "required": false
           }
         ],
         "responses": {

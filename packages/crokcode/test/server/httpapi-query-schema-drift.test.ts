@@ -8,6 +8,7 @@ import { PublicApi } from "../../src/server/routes/instance/httpapi/public"
 import {
   FilePaths,
   FileQuery,
+  FileReadQuery,
   FindFileQuery,
   FindTextQuery,
 } from "../../src/server/routes/instance/httpapi/groups/file"
@@ -51,6 +52,7 @@ const openApiDriftRoutes = [
   { method: "get", path: FilePaths.findFile, query: FindFileQuery },
   { method: "get", path: FilePaths.findText, query: FindTextQuery },
   { method: "get", path: FilePaths.list, query: FileQuery },
+  { method: "get", path: FilePaths.content, query: FileReadQuery },
   { method: "get", path: ExperimentalPaths.session, query: ExperimentalSessionListQuery },
   { method: "get", path: ExperimentalPaths.tool, query: ToolListQuery },
   { method: "get", path: InstancePaths.vcsDiff, query: VcsDiffQuery },
@@ -187,6 +189,17 @@ describe("httpapi query schema drift", () => {
           operation: spec.paths[openApiPath(route.path)]?.[route.method],
         })
       }
+    }),
+  )
+
+  // `raw` only means something to the read endpoint. Sharing one query schema
+  // made `file.list` advertise a parameter its handler ignores.
+  it.effect(
+    "only the file read endpoint advertises raw",
+    Effect.sync(() => {
+      const spec = OpenApi.fromApi(PublicApi)
+      expect(queryParameters(spec.paths[openApiPath(FilePaths.list)]?.get)).not.toContain("raw")
+      expect(queryParameters(spec.paths[openApiPath(FilePaths.content)]?.get)).toContain("raw")
     }),
   )
 

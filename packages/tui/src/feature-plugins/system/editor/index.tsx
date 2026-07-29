@@ -1,9 +1,9 @@
 /** @jsxImportSource @opentui/solid */
 import type { TuiPlugin, TuiPluginApi, TuiRouteCurrent } from "@crokcode/plugin/tui"
-import type { MouseEvent, TextareaRenderable } from "@opentui/core"
+import type { MouseEvent, ScrollBoxRenderable, TextareaRenderable } from "@opentui/core"
 import { useTerminalDimensions } from "@opentui/solid"
 import path from "path"
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import { useProject } from "../../../context/project"
 import { useSDK } from "../../../context/sdk"
 import { useBindings, useCommandShortcut } from "../../../keymap"
@@ -27,10 +27,78 @@ const GUTTER_MIN_WIDTH = 4
 const DIRECTORY_MARK = "/"
 /** Header row, footer row, and the two rows the pane borders take. */
 const CHROME_ROWS = 4
-const BANNER_ROWS = 3
+/** Top border, headline, the row of choices, bottom border. */
+const BANNER_ROWS = 4
+/**
+ * A server that does not report `mtime` leaves the timestamp unknown. NaN never
+ * compares equal, not even to itself, so an unknown timestamp can never be
+ * mistaken for a match and silently wave a stale write through.
+ */
+const UNKNOWN_MTIME = Number.NaN
 
 type EditorFocus = "tree" | "editor"
 type Conflict = { readonly file: string; readonly text: string; readonly mtime: number }
+
+/**
+ * Everything the route must not lose when it is left and re-entered.
+ *
+ * The spec requires that leaving with unsaved changes "keeps the buffer, so
+ * returning finds your work intact". The renderables themselves cannot survive:
+ * the Solid reconciler calls `destroyRecursively()` on every node it removes,
+ * so a handle held past unmount is a dead handle. What survives is the text, the
+ * saved-state map and the tree's shape, captured on the way out and replayed on
+ * the way back in. This lives in plugin scope, so it outlives the route and dies
+ * only with the plugin.
+ */
+type EditorSession = {
+  paths: readonly string[]
+  expandedPaths: ReadonlySet<string>
+  selectedPath: string | undefined
+  openFiles: readonly string[]
+  activeFile: string | undefined
+  focus: EditorFocus
+  states: ReadonlyMap<string, BufferState>
+  /** Buffer text per open file, as of the last time the route unmounted. */
+  readonly text: Map<string, string>
+  readonly cursors: Map<string, number>
+  readonly absolutePaths: Map<string, string>
+  readonly listed: Set<string>
+  /** Workspace root, inferred from the first listing that reports one. */
+  root: string | undefined
+}
+
+function createEditorSession(): EditorSession {
+  return {
+    paths: [],
+    expandedPaths: new Set(),
+    selectedPath: undefined,
+    openFiles: [],
+    activeFile: undefined,
+    focus: "tree",
+    states: new Map(),
+    text: new Map(),
+    cursors: new Map(),
+    absolutePaths: new Map(),
+    listed: new Set(),
+    root: undefined,
+  }
+}
+
+/** Watchers report native separators; comparisons here are done in one form. */
+function normalizeSeparators(value: string) {
+  return value.replaceAll("\\", "/")
+}
+
+function scrollRowIntoView(scroll: ScrollBoxRenderable | undefined, index: number) {
+  if (!scroll) return
+  if (index < scroll.scrollTop) {
+    scroll.scrollTo(index)
+    return
+  }
+  if (index >= scroll.scrollTop + scroll.viewport.height) {
+    scroll.scrollTo(index - scroll.viewport.height + 1)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Path helpers. `tree-source` marks a directory with a trailing slash so an
@@ -81,7 +149,7 @@ function deepestCollapsed(tree: FileTree, id: number): number {
   return child?.kind === "directory" ? deepestCollapsed(tree, child.id) : id
 }
 
-function EditorRoute(props: { api: TuiPluginApi }) {
+function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   const sdk = useSDK()
   const project = useProject()
   const dimensions = useTerminalDimensions()
@@ -92,26 +160,57 @@ function EditorRoute(props: { api: TuiPluginApi }) {
       | { file?: string; returnRoute?: TuiRouteCurrent }
       | undefined
 
-  const [paths, setPaths] = createSignal<readonly string[]>([])
-  const [expandedPaths, setExpandedPaths] = createSignal<ReadonlySet<string>>(new Set())
+  const session = props.session
+
+  const [paths, setPaths] = createSignal<readonly string[]>(session.paths)
+  const [expandedPaths, setExpandedPaths] = createSignal<ReadonlySet<string>>(session.expandedPaths)
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set())
-  const [selectedPath, setSelectedPath] = createSignal<string | undefined>()
-  const [openFiles, setOpenFiles] = createSignal<readonly string[]>([])
-  const [activeFile, setActiveFile] = createSignal<string | undefined>()
-  const [focus, setFocus] = createSignal<EditorFocus>("tree")
+  const [selectedPath, setSelectedPath] = createSignal<string | undefined>(session.selectedPath)
+  const [openFiles, setOpenFiles] = createSignal<readonly string[]>(session.openFiles)
+  const [activeFile, setActiveFile] = createSignal<string | undefined>(session.activeFile)
+  const [focus, setFocus] = createSignal<EditorFocus>(session.focus)
   const [conflict, setConflict] = createSignal<Conflict | undefined>()
-  const [states, setStates] = createSignal<ReadonlyMap<string, BufferState>>(new Map())
+  const [states, setStates] = createSignal<ReadonlyMap<string, BufferState>>(session.states)
   // Text is native-side state, so nothing reactive changes when the user types.
   // The dirty dot listens to this instead.
   const [revision, setRevision] = createSignal(0)
+  // Bumped only when a renderable is attached, so the focus effect can re-run
+  // for a buffer that did not exist when the effect last ran.
+  const [attached, setAttached] = createSignal(0)
 
   // Native handles. Every renderable here owns one EditBuffer and one EditorView.
   const renderables = new Map<string, TextareaRenderable>()
-  const initialText = new Map<string, string>()
-  const absolutePaths = new Map<string, string>()
-  const listed = new Set<string>()
+  // Seeded from the session so a buffer left open on the way out comes back with
+  // its unsaved text, not with whatever is on disk.
+  const initialText = new Map(session.text)
+  const absolutePaths = session.absolutePaths
+  const listed = session.listed
+
+  /**
+   * The text only exists inside the renderable, so it has to be read out before
+   * the renderable goes. Called from the buffer's own cleanup and again from the
+   * route's, so it does not depend on which of the two disposal orders Solid
+   * happens to use.
+   */
+  const captureBuffer = (file: string) => {
+    const renderable = renderables.get(file)
+    if (!renderable || renderable.isDestroyed) return
+    session.text.set(file, renderable.plainText)
+    session.cursors.set(file, renderable.cursorOffset)
+    renderable.blur()
+  }
 
   onCleanup(() => {
+    // Capture before destroying: this is the last moment the unsaved text still
+    // exists anywhere, and the spec says leaving must not discard it.
+    for (const file of renderables.keys()) captureBuffer(file)
+    session.paths = paths()
+    session.expandedPaths = expandedPaths()
+    session.selectedPath = selectedPath()
+    session.openFiles = openFiles()
+    session.activeFile = activeFile()
+    session.focus = focus()
+    session.states = states()
     for (const renderable of renderables.values()) {
       if (!renderable.isDestroyed) renderable.destroy()
     }
@@ -171,6 +270,19 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   // Tree
   // -------------------------------------------------------------------------
 
+  /**
+   * Every listing reports a path and its absolute form, and the difference
+   * between them is the workspace root. Knowing it turns watcher matching from a
+   * suffix guess into an exact comparison.
+   */
+  const rememberRoot = (node: { path: string; absolute: string }) => {
+    if (session.root !== undefined) return
+    const absolute = normalizeSeparators(node.absolute)
+    const relative = normalizeSeparators(node.path)
+    if (!relative || !absolute.endsWith(`/${relative}`)) return
+    session.root = absolute.slice(0, absolute.length - relative.length - 1)
+  }
+
   const listDirectory = async (directory: string) => {
     if (listed.has(directory) || pending().has(directory)) return
     markPending(directory, true)
@@ -178,7 +290,10 @@ function EditorRoute(props: { api: TuiPluginApi }) {
       const result = await sdk.client.file.list({ path: directory || ".", workspace: workspace() })
       if (result.error) return
       const nodes = result.data ?? []
-      for (const node of nodes) absolutePaths.set(node.path, node.absolute)
+      for (const node of nodes) {
+        absolutePaths.set(node.path, node.absolute)
+        rememberRoot(node)
+      }
       const entries: DirectoryEntry[] = nodes.map((node) => ({ path: node.path, type: node.type }))
       setPaths((current) => mergeEntries(current, entries))
       listed.add(directory)
@@ -214,14 +329,15 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   /**
    * The read endpoint stamps `mtime` from the same clock the write endpoint
    * reports, so the two can be compared. A server that omits it leaves the
-   * timestamp unknown — `0` compares equal to itself and so never invents a
-   * conflict, it only means this save is unguarded.
+   * timestamp unknown, which `UNKNOWN_MTIME` records honestly instead of
+   * inventing a `0` that would compare equal to itself and quietly turn the
+   * stale-write guard off.
    */
   const readFromDisk = async (file: string) => {
     const result = await sdk.client.file.read({ path: file, raw: "true", workspace: workspace() })
     if (result.error || !result.data) return undefined
     if (result.data.type !== "text") return undefined
-    return { text: result.data.content, mtime: result.data.mtime ?? 0 }
+    return { text: result.data.content, mtime: result.data.mtime ?? UNKNOWN_MTIME }
   }
 
   const openFile = async (file: string) => {
@@ -260,7 +376,15 @@ function EditorRoute(props: { api: TuiPluginApi }) {
       props.api.ui.toast({ variant: "error", message: `Could not save ${file}` })
       return
     }
-    if (beforeSave(state, { mtime: disk.mtime }).action === "conflict") {
+    // With both timestamps known the cheap mtime guard answers it. With either
+    // one unknown there is nothing to compare, so fall back to the question the
+    // guard is really asking — did the bytes move since we last read them — and
+    // conflict if they did, rather than clobbering on an unanswerable check.
+    const guarded = !Number.isNaN(disk.mtime) && !Number.isNaN(state.mtime)
+    const conflicted = guarded
+      ? beforeSave(state, { mtime: disk.mtime }).action === "conflict"
+      : disk.text !== state.savedText
+    if (conflicted) {
       setConflict({ file, text: disk.text, mtime: disk.mtime })
       return
     }
@@ -315,9 +439,14 @@ function EditorRoute(props: { api: TuiPluginApi }) {
         renderable.replaceText(current.text)
         renderable.cursorOffset = Math.min(offset, current.text.length)
       }
-      setState(current.file, { savedText: current.text, mtime: current.mtime })
-      setRevision((value) => value + 1)
     }
+    // Both choices leave the buffer's own text alone or replace it outright, but
+    // either way the disk version just became known. Recording it — timestamp
+    // and content — is what lets the next save through; leaving the old state in
+    // place means every later ctrl+s re-conflicts against a change already
+    // answered, with no way to ever persist your own version.
+    setState(current.file, { savedText: current.text, mtime: current.mtime })
+    setRevision((value) => value + 1)
     setConflict(undefined)
   }
 
@@ -327,13 +456,27 @@ function EditorRoute(props: { api: TuiPluginApi }) {
     if (typeof file === "string" && file) void openFile(file)
   })
 
+  /**
+   * The watcher reports whatever the platform gives it: a relative path, an
+   * absolute one, and on Windows one with backslashes. A `endsWith("/" + file)`
+   * test matches none of those on Windows, and on posix it also matches
+   * `unrelated/root/src/index.ts` for an open `src/index.ts`. Comparing whole
+   * paths against the known root is both separator-agnostic and exact.
+   */
+  const matchesOpenFile = (changed: string, file: string) => {
+    const target = normalizeSeparators(changed)
+    const relative = normalizeSeparators(file)
+    if (target === relative) return true
+    const absolute = absolutePaths.get(file)
+    if (absolute !== undefined && normalizeSeparators(absolute) === target) return true
+    return session.root !== undefined && target === `${session.root}/${relative}`
+  }
+
   onCleanup(
     props.api.event.on("file.watcher.updated", (event) => {
       const changed = event.properties.file
       for (const file of openFiles()) {
-        if (changed === file || changed.endsWith(`/${file}`) || changed === absolutePaths.get(file)) {
-          void applyExternalChange(file)
-        }
+        if (matchesOpenFile(changed, file)) void applyExternalChange(file)
       }
     }),
   )
@@ -342,17 +485,37 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   // Keymap
   // -------------------------------------------------------------------------
 
+  const leave = () => {
+    const returnRoute = params()?.returnRoute
+    props.api.route.navigate(
+      returnRoute?.name ?? "home",
+      returnRoute && "params" in returnRoute ? returnRoute.params : undefined,
+    )
+  }
+
   const commands = [
     {
       name: "editor.close",
       title: "Close the editor",
       category: "Editor",
+      run: leave,
+    },
+    {
+      name: "editor.back",
+      title: "Go back one step in the editor",
+      category: "Editor",
+      // Exactly one step at a time: editor pane → tree → chat. Leaving never
+      // discards the buffer, the session store holds it until the plugin dies.
       run() {
-        const returnRoute = params()?.returnRoute
-        props.api.route.navigate(
-          returnRoute?.name ?? "home",
-          returnRoute && "params" in returnRoute ? returnRoute.params : undefined,
-        )
+        if (conflict()) {
+          resolveConflict("mine")
+          return
+        }
+        if (focus() === "editor") {
+          setFocus("tree")
+          return
+        }
+        leave()
       },
     },
     {
@@ -422,32 +585,21 @@ function EditorRoute(props: { api: TuiPluginApi }) {
     },
   ]
 
+  // Every key here comes from the keymap layer — no component ever spells one
+  // out. Which group is live is still a component decision: the single-letter
+  // tree and banner keys are only offered when the text buffer does not hold
+  // focus, otherwise they would eat the user's typing.
+  const gather = (names: readonly string[]) => props.api.tuiConfig.keybinds.gather("editor", names)
+
   useBindings(() => ({
     commands,
+    // The editor's own verbs must win over the global managed-textarea layer,
+    // the same reason the dialog prompt raises its priority.
+    priority: 1,
     bindings: [
-      // Single-letter defaults are only offered while the text buffer does not
-      // have focus, otherwise they would eat the user's typing.
-      ...(focus() === "tree" && !conflict()
-        ? [
-            { key: "j,down", cmd: "editor.down", desc: "Move down in the file tree" },
-            { key: "k,up", cmd: "editor.up", desc: "Move up in the file tree" },
-            { key: "enter,space", cmd: "editor.toggle", desc: "Open the selected file or folder" },
-          ]
-        : []),
-      ...(conflict()
-        ? [
-            { key: "k", cmd: "editor.conflict.keep", desc: "Keep mine" },
-            { key: "t", cmd: "editor.conflict.take", desc: "Take theirs" },
-            { key: "d", cmd: "editor.conflict.diff", desc: "Diff" },
-          ]
-        : []),
-      { key: "ctrl+s", cmd: "editor.save", desc: "Save the open file" },
-      { key: "ctrl+w", cmd: "editor.focus.next", desc: "Switch editor focus" },
-      { key: "escape", cmd: "editor.close", desc: "Close the editor" },
-      ...props.api.tuiConfig.keybinds.gather(
-        "editor",
-        commands.map((command) => command.name),
-      ),
+      ...(focus() === "tree" && !conflict() ? gather(["editor.down", "editor.up", "editor.toggle"]) : []),
+      ...(conflict() ? gather(["editor.conflict.keep", "editor.conflict.take", "editor.conflict.diff"]) : []),
+      ...gather(["editor.save", "editor.focus.next", "editor.back", "editor.close"]),
     ],
   }))
 
@@ -456,23 +608,93 @@ function EditorRoute(props: { api: TuiPluginApi }) {
   const closeShortcut = useCommandShortcut("editor.close")
   const toggleShortcut = useCommandShortcut("editor.toggle")
 
+  const backShortcut = useCommandShortcut("editor.back")
+
   const hints = createMemo(() =>
     focus() === "tree"
       ? [
           { shortcut: toggleShortcut(), label: "open" },
           { shortcut: focusShortcut(), label: "focus editor" },
+          { shortcut: backShortcut(), label: "back" },
           { shortcut: closeShortcut(), label: "close" },
         ]
       : [
           { shortcut: saveShortcut(), label: "save" },
           { shortcut: focusShortcut(), label: "focus tree" },
+          { shortcut: backShortcut(), label: "tree" },
           { shortcut: closeShortcut(), label: "close" },
         ],
   )
 
   // -------------------------------------------------------------------------
+  // Focus
+  // -------------------------------------------------------------------------
+
+  /**
+   * Nothing else focuses this textarea. With a plugin route active the prompt
+   * input is unmounted, so unless the active buffer is focused here the renderer
+   * has no focused editor at all: `handleKeyPress` never runs, the managed
+   * `input.*` layer stays disabled, and typing goes nowhere. A mouse click used
+   * to be the only way in.
+   */
+  const applyFocus = () => {
+    const file = activeFile()
+    // While the banner is up its single-letter choices have to reach the keymap,
+    // so the buffer gives up focus until the conflict is answered.
+    const wanted = focus() === "editor" && !conflict() ? file : undefined
+    for (const [name, renderable] of renderables) {
+      if (renderable.isDestroyed) continue
+      if (name === wanted) renderable.focus()
+      else renderable.blur()
+    }
+  }
+
+  createEffect(() => {
+    attached()
+    activeFile()
+    focus()
+    conflict()
+    applyFocus()
+  })
+
+  onMount(() => {
+    // The renderable is not attached on the first tick; the dialog prompt waits
+    // the same way before claiming focus.
+    setTimeout(applyFocus, 1)
+  })
+
+  // -------------------------------------------------------------------------
   // Layout
   // -------------------------------------------------------------------------
+
+  let treeScroll: ScrollBoxRenderable | undefined
+
+  /**
+   * A row that is listing its children renders a second "loading…" line, so a
+   * row's index is not its line in the scrollbox.
+   */
+  const treeRowLines = createMemo(() => {
+    const lines: number[] = []
+    let line = 0
+    for (const row of rows()) {
+      lines.push(line)
+      line += pending().has(rowPath(row)) ? 2 : 1
+    }
+    return lines
+  })
+
+  // Without this, j/k in a directory taller than the pane moves a selection the
+  // user cannot see. Same treatment the diff viewer's tree gets.
+  createEffect(() => {
+    const selected = selectedPath()
+    if (selected === undefined) return
+    const index = rows().findIndex((row) => rowPath(row) === selected)
+    if (index === -1) return
+    const line = treeRowLines()[index] ?? index
+    const bring = () => scrollRowIntoView(treeScroll, line)
+    bring()
+    requestAnimationFrame(bring)
+  })
 
   const paneHeight = () =>
     Math.max(1, dimensions().height - CHROME_ROWS - (conflict() ? BANNER_ROWS : 0))
@@ -494,7 +716,7 @@ function EditorRoute(props: { api: TuiPluginApi }) {
           {activeFile() ? Locale.truncateLeft(activeFile()!, Math.max(4, dimensions().width - 12)) : "Editor"}
         </text>
         <Show when={dirty()}>
-          <text fg={theme().warning}>●</text>
+          <text fg={theme().accent}>●</text>
         </Show>
       </box>
 
@@ -536,6 +758,7 @@ function EditorRoute(props: { api: TuiPluginApi }) {
           onMouseDown={() => setFocus("tree")}
         >
           <scrollbox
+            ref={(element: ScrollBoxRenderable) => (treeScroll = element)}
             verticalScrollbarOptions={{ visible: false }}
             horizontalScrollbarOptions={{ visible: false }}
           >
@@ -607,6 +830,7 @@ function EditorRoute(props: { api: TuiPluginApi }) {
             <For each={openFiles()}>
               {(file) => {
                 const active = () => activeFile() === file
+                onCleanup(() => captureBuffer(file))
                 return (
                   <box
                     minHeight={0}
@@ -642,9 +866,16 @@ function EditorRoute(props: { api: TuiPluginApi }) {
                         }}
                         ref={(renderable: TextareaRenderable) => {
                           renderables.set(file, renderable)
-                          renderable.setText(initialText.get(file) ?? "")
+                          const text = initialText.get(file) ?? ""
+                          renderable.setText(text)
                           initialText.delete(file)
+                          const cursor = session.cursors.get(file)
+                          if (cursor !== undefined) {
+                            renderable.cursorOffset = Math.min(cursor, text.length)
+                            session.cursors.delete(file)
+                          }
                           setRevision((value) => value + 1)
+                          setAttached((value) => value + 1)
                         }}
                       />
                     </line_number>
@@ -684,10 +915,15 @@ function EditorRoute(props: { api: TuiPluginApi }) {
 }
 
 const tui: TuiPlugin = async (api) => {
+  // Plugin scope, not route scope. The route is unmounted every time the user
+  // leaves, and everything declared inside it dies with it; this is what carries
+  // unsaved buffers across that boundary.
+  const session = createEditorSession()
+
   api.route.register([
     {
       name: ROUTE,
-      render: () => <EditorRoute api={api} />,
+      render: () => <EditorRoute api={api} session={session} />,
     },
   ])
 
