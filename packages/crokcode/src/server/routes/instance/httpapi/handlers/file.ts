@@ -93,7 +93,9 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
       )
     })
 
-    const content = Effect.fn("FileHttpApi.content")(function* (ctx: { query: { path: string } }) {
+    const content = Effect.fn("FileHttpApi.content")(function* (ctx: {
+      query: { path: string; raw?: "true" | "false" }
+    }) {
       const directory = (yield* InstanceState.context).directory
       const file = path.resolve(directory, ctx.query.path)
       if (!FSUtil.contains(directory, file)) return yield* Effect.die(new Error("Path escapes the location"))
@@ -113,7 +115,7 @@ export const fileHandlers = HttpApiBuilder.group(InstanceHttpApi, "file", (handl
         ),
         Effect.map(({ item, text }) =>
           Option.isSome(text)
-            ? { type: "text" as const, content: text.value.trim() }
+            ? { type: "text" as const, content: ctx.query.raw === "true" ? text.value : text.value.trim() }
             : {
                 type: "binary" as const,
                 content: Buffer.from(item.content).toString("base64"),
