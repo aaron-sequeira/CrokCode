@@ -12,6 +12,28 @@ const visible = (paths: readonly string[], expanded: ReadonlySet<string>) => {
   return flattenFileTree(tree, expandedNodeIds(tree, expanded)).map((row) => rowExpansionPath(tree, row.id))
 }
 
+// The server reports native separators. On Windows that is backslashes, and
+// buildFileTree splits on "/" alone — so an unnormalised path is a single
+// segment, every entry becomes a top-level leaf, no directory node is ever
+// built, and the tree cannot nest or collapse. This is what shipped.
+test("windows separators must be normalised or the tree is flat", () => {
+  const raw = buildTree([".turbo\\", ".turbo\\turbo-typecheck.log"])
+  expect(raw.nodes.every((node) => node.kind === "file")).toBe(true)
+  expect(expandedNodeIds(raw, new Set([".turbo\\"])).size).toBe(0)
+
+  const normalised = buildTree([".turbo/", ".turbo/turbo-typecheck.log"])
+  expect(normalised.nodes.some((node) => node.kind === "directory")).toBe(true)
+  expect(expandedNodeIds(normalised, new Set([".turbo"])).size).toBe(1)
+})
+
+test("a windows-shaped listing nests and collapses once normalised", () => {
+  const paths = ["bin/", "bin/crokcode", "package.json"]
+  const open = visible(paths, new Set(["bin"]))
+  expect(open).toEqual(["bin", "bin/crokcode", "package.json"])
+  const closed = visible(paths, new Set())
+  expect(closed).toEqual(["bin", "package.json"])
+})
+
 test("an unlisted directory arrives as a marker and is still a leaf", () => {
   const tree = buildTree(["src/", "test/"])
   expect(tree.nodes.map((node) => node.kind)).toEqual(["file", "file"])

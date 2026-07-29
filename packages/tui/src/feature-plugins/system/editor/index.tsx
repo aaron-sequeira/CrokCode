@@ -89,6 +89,7 @@ function normalizeSeparators(value: string) {
   return value.replaceAll("\\", "/")
 }
 
+
 function scrollRowIntoView(scroll: ScrollBoxRenderable | undefined, index: number) {
   if (!scroll) return
   if (index < scroll.scrollTop) {
@@ -138,8 +139,6 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   // Bumped only when a renderable is attached, so the focus effect can re-run
   // for a buffer that did not exist when the effect last ran.
   const [attached, setAttached] = createSignal(0)
-  // ponytail: diagnostic readout for the folder toggle, rendered in the footer.
-  const [debug, setDebug] = createSignal("")
 
   // Native handles. Every renderable here owns one EditBuffer and one EditorView.
   const renderables = new Map<string, TextareaRenderable>()
@@ -246,10 +245,17 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
       if (result.error) return
       const nodes = result.data ?? []
       for (const node of nodes) {
-        absolutePaths.set(node.path, node.absolute)
+        absolutePaths.set(normalizeSeparators(node.path), node.absolute)
         rememberRoot(node)
       }
-      const entries: DirectoryEntry[] = nodes.map((node) => ({ path: node.path, type: node.type }))
+      // The server reports native separators, and on Windows that means
+      // backslashes. buildFileTree splits on "/" alone, so unnormalised paths
+      // produce one segment each: every entry becomes a top-level leaf, no
+      // directory node is ever built, and nothing can nest or collapse.
+      const entries: DirectoryEntry[] = nodes.map((node) => ({
+        path: normalizeSeparators(node.path),
+        type: node.type,
+      }))
       setPaths((current) => mergeEntries(current, entries))
       listed.add(directory)
     } catch {
@@ -267,15 +273,6 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
   const toggleDirectory = (row: FileTreeRow) => {
     const file = rowPath(row)
     setExpandedPaths((current) => togglePath(current, file))
-    // ponytail: diagnostic — collapse is reported broken while the pure toggle
-    // is proven correct in tests. A toast cannot be seen from here (this route
-    // is an absolute overlay above the toast layer), so it goes in the footer.
-    // Remove once a real run says which side is lying.
-    setDebug(
-      `${row.kind}/${rowIsDirectory(row) ? "dir" : "file"} "${file}" → ${
-        expandedPaths().has(file) ? "OPEN" : "CLOSED"
-      } n=${expandedPaths().size} rows=${rows().length}`,
-    )
     if (!listed.has(file)) void listDirectory(file)
   }
 
@@ -456,10 +453,6 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
     const routeParams = returnRoute && name === returnRoute.name && "params" in returnRoute
       ? returnRoute.params
       : undefined
-    // ponytail: diagnostic — the exit path is reported as not working and
-    // nothing in the code explains it, so say out loud what we are doing.
-    // Remove once a real run confirms which half is at fault.
-    props.api.ui.toast({ variant: "info", message: `Leaving editor → ${name}` })
     props.api.route.navigate(name, routeParams)
   }
 
@@ -764,8 +757,12 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
                 {(row) => {
                   const file = () => rowPath(row)
                   const selected = () => selectedPath() === file()
+                  // Down when open, right when closed. Keyed on the expansion
+                  // set rather than the node ids, so a directory whose listing
+                  // has not arrived yet — still a leaf, so never in the id set —
+                  // shows the right arrow too.
                   const marker = () =>
-                    rowIsDirectory(row) ? (expandedNodes().has(row.id) ? "▾ " : "▸ ") : "  "
+                    rowIsDirectory(row) ? (expandedPaths().has(file()) ? "▾ " : "▸ ") : "  "
                   const label = () =>
                     Locale.truncate(row.name, Math.max(1, TREE_WIDTH - 4 - row.depth * 2 - marker().length))
                   return (
@@ -891,11 +888,6 @@ function EditorRoute(props: { api: TuiPluginApi; session: EditorSession }) {
             </Show>
           )}
         </For>
-        <Show when={debug()}>
-          <text fg={theme().warning} wrapMode="none">
-            {debug()}
-          </text>
-        </Show>
       </box>
     </box>
   )
