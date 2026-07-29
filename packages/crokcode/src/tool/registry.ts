@@ -14,6 +14,7 @@ import { Database } from "@crokcode/core/database/database"
 import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { PentestTool } from "./pentest"
+import { BrowserTool } from "./browser"
 import { WriteTool } from "./write"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
@@ -106,6 +107,7 @@ const layer = Layer.effect(
     const webfetch = yield* WebFetchTool
     const websearch = yield* WebSearchTool
     const pentest = yield* PentestTool
+    const browser = yield* BrowserTool
     const shell = yield* ShellTool
     const globtool = yield* GlobTool
     const writetool = yield* WriteTool
@@ -216,6 +218,7 @@ const layer = Layer.effect(
           task: Tool.init(task),
           fetch: Tool.init(webfetch),
           pentest: Tool.init(pentest),
+          browser: Tool.init(browser),
           todo: Tool.init(todo),
           search: Tool.init(websearch),
           skill: Tool.init(skilltool),
@@ -240,6 +243,7 @@ const layer = Layer.effect(
             tool.task,
             tool.fetch,
             tool.pentest,
+            tool.browser,
             tool.todo,
             tool.search,
             tool.skill,

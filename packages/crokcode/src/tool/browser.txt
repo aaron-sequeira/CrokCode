@@ -1,0 +1,20 @@
+Drive a real Chrome browser to complete tasks that require clicking and typing on a web page — the things that cannot be done with an HTTP request alone: logging into a UI, filling and submitting a form, navigating a single-page app, clicking through a multi-step flow, or verifying how a page actually behaves in a browser.
+
+This controls an actual Chrome via the DevTools Protocol. Mouse and keyboard events enter the page exactly as a real device's do, so the site cannot distinguish your interaction from a human's. Chrome runs in a dedicated automation profile that starts logged out — it does not share the user's everyday Chrome logins unless the user explicitly configured that.
+
+WHEN TO USE IT:
+- The task genuinely needs a browser cursor: clicking buttons, filling forms, following a login or checkout flow, interacting with JavaScript-driven UI.
+- Prefer the fetch tool for reading a page's content, and the pentest tool for probing an app's HTTP behavior. Reach for the browser only when clicking/typing is actually required.
+
+HOW TO USE IT:
+1. `navigate` with a full URL. The user confirms the origin on first visit; you cannot drive a site the user has not approved this session. Navigate returns a snapshot of the page's interactive elements.
+2. Read the snapshot. Each interactive element is listed as `[ref] role "name"` — for example `[3] button "Sign in"`. The ref is how you act on it.
+3. `click` with a ref to click that element. `type` with a ref and text to click it and enter text. `key` with a key name (Enter, Tab, ArrowDown, Escape) to press a key.
+4. After each action you get a fresh snapshot and the current URL, so you can see what changed and decide the next step. Refs are only valid until the next snapshot — always act on the most recent one.
+5. `screenshot` returns a PNG of the current page when you need to see the visual state.
+6. `close` ends the browser session when the task is done.
+
+CONSTRAINTS:
+- Only drive sites the user has approved. Do not navigate to a login, banking, or account page the user did not ask you to use, and never enter the user's credentials unless they explicitly provided them for this task.
+- One step at a time: navigate, read the snapshot, act, read the result, then decide the next action. Do not guess refs — they come only from the latest snapshot.
+- If an element is not visible or the ref is stale, take a fresh snapshot rather than retrying blindly.
