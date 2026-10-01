@@ -20,7 +20,9 @@ export function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (!ready) return null
+  // Only /app waits on the session check. Gating the whole router on it left the
+  // landing page blank whenever Supabase was slow or unreachable.
+  const account = session ? <Dashboard user={session.user} /> : <Login />
 
   return (
     <Router>
@@ -28,7 +30,7 @@ export function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/link" element={<Link />} />
-        <Route path="/app" element={session ? <Dashboard user={session.user} /> : <Login />} />
+        <Route path="/app" element={ready ? account : null} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
