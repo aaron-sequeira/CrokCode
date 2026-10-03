@@ -292,24 +292,61 @@ export function Prompt(props: PromptProps) {
     return messages.findLast((m): m is UserMessage => m.role === "user")
   })
 
+  const messageTokens = (m: AssistantMessage) =>
+    m.tokens.input + m.tokens.output + m.tokens.reasoning + m.tokens.cache.read + m.tokens.cache.write
+
   const usage = createMemo(() => {
     if (!props.sessionID) return
     const session = sync.session.get(props.sessionID)
     const msg = sync.data.message[props.sessionID] ?? []
-    const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
+    const assistants = msg.filter((item): item is AssistantMessage => item.role === "assistant")
+    const last = assistants.findLast((item) => item.tokens.output > 0)
     if (!last) return
 
-    const tokens =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
-    if (tokens <= 0) return
+    const turn = messageTokens(last) // this turn (the latest assistant response)
+    if (turn <= 0) return
+    const total = assistants.reduce((sum, m) => sum + messageTokens(m), 0) // whole session
 
     const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
-    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
-    const cost = session?.cost ?? 0
-    return {
-      context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
-      cost: cost > 0 ? money.format(cost) : undefined,
+    const pct = model?.limit.context ? Math.round((turn / model.limit.context) * 100) : undefined
+    return { turn, total, pct, cost: session?.cost ?? 0 }
+  })
+
+  // Animate the token figures up to their targets so a finished turn's usage
+  // counts up instead of snapping. Always converges to the real value, so if a
+  // frame is missed the numbers are still correct.
+  const [shown, setShown] = createSignal({ turn: 0, total: 0 })
+  createEffect(() => {
+    const target = usage()
+    if (!target) {
+      setShown({ turn: 0, total: 0 })
+      return
     }
+    const ease = (cur: number, to: number) => {
+      if (cur === to) return to
+      const next = cur + Math.sign(to - cur) * Math.max(1, Math.ceil(Math.abs(to - cur) / 6))
+      return (to - cur > 0) === next > to ? to : next
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = () =>
+      setShown((cur) => {
+        const turn = ease(cur.turn, target.turn)
+        const total = ease(cur.total, target.total)
+        if (turn !== target.turn || total !== target.total) timer = setTimeout(tick, 40)
+        return { turn, total }
+      })
+    tick()
+    onCleanup(() => clearTimeout(timer))
+  })
+
+  const usageText = createMemo(() => {
+    const u = usage()
+    if (!u) return
+    const s = shown()
+    const turn = u.pct !== undefined ? `${Locale.number(s.turn)} (${u.pct}%)` : Locale.number(s.turn)
+    const parts = [`${turn} this turn`, `${Locale.number(s.total)} total`]
+    if (u.cost > 0) parts.push(money.format(u.cost))
+    return parts.join(" · ")
   })
 
   const [store, setStore] = createStore<{
@@ -1806,10 +1843,10 @@ export function Prompt(props: PromptProps) {
               <Switch>
                 <Match when={store.mode === "normal"}>
                   <Switch>
-                    <Match when={usage()}>
+                    <Match when={usageText()}>
                       {(item) => (
                         <text fg={theme.textMuted} wrapMode="none">
-                          {[item().context, item().cost].filter(Boolean).join(" · ")}
+                          {item()}
                         </text>
                       )}
                     </Match>
