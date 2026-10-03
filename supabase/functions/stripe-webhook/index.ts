@@ -29,16 +29,20 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 )
 
-// Maps a Stripe price to one of our plans. Falls back to price metadata.
+// Maps a Stripe price to one of our plans. Falls back to price metadata. Plan
+// keys are the hyphenated values used by plan_limits, the gateway and the client
+// (e.g. "crok-king"); the metadata fallback is normalized to match.
 const PLAN_BY_PRICE: Record<string, string> = {
-  price_1Tw8nNFqcQDpQanawhK8CWrq: "crokgo", // $10/mo (first month 50% off)
+  price_1Tw8nNFqcQDpQanawhK8CWrq: "crokgo", // $10/mo (first month 50% off) — retired
   price_1TvhxRFqcQDpQanaev7w9EKu: "crokgo", // legacy $5/mo (existing subs)
   price_1TvhxiFqcQDpQanaxdA1phYl: "crokpro",
+  price_1UMG7YFqcQDpQanaVTPbtWq1: "crok-king", // $100/mo
+  price_1UMG90FqcQDpQanaVdUgSXVa: "crok-king-max", // $200/mo (Crok-King 20x)
 }
 
 function planFor(price: Stripe.Price | null | undefined) {
   if (!price) return undefined
-  return PLAN_BY_PRICE[price.id] ?? (price.metadata?.plan as string | undefined)?.replace(/-/g, "_")
+  return PLAN_BY_PRICE[price.id] ?? (price.metadata?.plan as string | undefined)
 }
 
 /** Resolve the CrokCode user for a Stripe customer, linking the id on first sight. */
