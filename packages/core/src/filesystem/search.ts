@@ -5,7 +5,12 @@ import path from "path"
 import { Context, Effect, Layer, Scope } from "effect"
 import { Fff } from "#fff"
 import fuzzysort from "fuzzysort"
-import { FileSystem } from "../filesystem"
+// Import the runtime schema values straight from the schema package, and the
+// type-only inputs as `import type`, so this module does NOT import the
+// ../filesystem barrel at runtime. That barrel depends on this file's `node`,
+// and the cycle left `FileSystemSearch.node` undefined depending on load order.
+import { Entry, Match, type FindInput } from "@crokcode/schema/filesystem"
+import type { GlobInput, GrepInput } from "../filesystem"
 import { FSUtil } from "../fs-util"
 import { Location } from "../location"
 import { Ripgrep } from "../ripgrep"
@@ -13,9 +18,9 @@ import { RelativePath } from "../schema"
 import { Flag } from "../flag/flag"
 
 export interface Interface {
-  readonly find: (input: FileSystem.FindInput) => Effect.Effect<FileSystem.Entry[]>
-  readonly glob: (input: FileSystem.GlobInput) => Effect.Effect<readonly FileSystem.Entry[]>
-  readonly grep: (input: FileSystem.GrepInput) => Effect.Effect<readonly FileSystem.Match[]>
+  readonly find: (input: FindInput) => Effect.Effect<Entry[]>
+  readonly glob: (input: GlobInput) => Effect.Effect<readonly Entry[]>
+  readonly grep: (input: GrepInput) => Effect.Effect<readonly Match[]>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@crokcode/v2/FileSystem/Search") {}
@@ -61,7 +66,7 @@ export const ripgrepLayer = Layer.effect(
             .pipe(
               Effect.map((result) =>
                 result.map((entry) =>
-                  FileSystem.Entry.make({
+                  Entry.make({
                     ...entry,
                     path: RelativePath.make(path.relative(location.directory, path.resolve(cwd, entry.path))),
                   }),
@@ -86,9 +91,9 @@ export const ripgrepLayer = Layer.effect(
             .pipe(
               Effect.map((result) =>
                 result.map((match) =>
-                  FileSystem.Match.make({
+                  Match.make({
                     ...match,
-                    entry: FileSystem.Entry.make({
+                    entry: Entry.make({
                       ...match.entry,
                       path: RelativePath.make(path.relative(location.directory, path.resolve(cwd, match.entry.path))),
                     }),
@@ -109,7 +114,7 @@ export const ripgrepLayer = Layer.effect(
           return fuzzysort.go(input.query, items, { limit: input.limit ?? 50 }).map((item) => {
             const relative = item.target
             const type = relative.endsWith(path.sep) ? ("directory" as const) : ("file" as const)
-            return FileSystem.Entry.make({
+            return Entry.make({
               path: RelativePath.make(relative),
               type,
             })
@@ -154,7 +159,7 @@ export const fffLayer = Layer.effect(
           })
           if (!found.ok) throw found.error
           return found.value.items.map((item) =>
-            FileSystem.Entry.make({
+            Entry.make({
               path: RelativePath.make(item.relativePath.replaceAll("\\", "/")),
               type: "file",
             }),
@@ -172,8 +177,8 @@ export const fffLayer = Layer.effect(
           if (!found.ok) throw found.error
           return found.value.items.map((match) => {
             const bytes = Buffer.from(match.lineContent)
-            return FileSystem.Match.make({
-              entry: FileSystem.Entry.make({
+            return Match.make({
+              entry: Entry.make({
                 path: RelativePath.make(match.relativePath.replaceAll("\\", "/")),
                 type: "file",
               }),
@@ -222,7 +227,7 @@ export const fffLayer = Layer.effect(
             .sort((a, b) => b.score - a.score || a.path.length - b.path.length)
             .map((item) => {
               const relative = item.path.replaceAll("\\", "/").replace(/\/$/, "")
-              return FileSystem.Entry.make({
+              return Entry.make({
                 path: RelativePath.make(relative + (item.type === "directory" ? path.sep : "")),
                 type: item.type,
               })
