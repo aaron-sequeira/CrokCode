@@ -90,7 +90,9 @@ export function make<
     name: input.service !== undefined ? input.service.key : input.name,
     service: input.service,
     implementation: input.layer,
-    dependencies: input.deps,
+    // Drop any nullish dependency (e.g. an optional/plugin node that wasn't
+    // registered due to init ordering) — it would crash the graph walk.
+    dependencies: (input.deps as readonly (AnyNode | undefined)[]).filter((dep): dep is AnyNode => dep != null),
     tag: input.tag,
   }
 }
@@ -108,7 +110,11 @@ export function unbound<R, Shape, const T extends Tag>(service: Context.Key<R, S
 export function group<const Items extends readonly AnyNode[]>(
   dependencies: Items,
 ): Node<Output<Items[number]>, Error<Items[number]>, NodeTag<Items[number]>> {
-  return { kind: "group", name: "group", dependencies }
+  return {
+    kind: "group",
+    name: "group",
+    dependencies: (dependencies as readonly (AnyNode | undefined)[]).filter((dep): dep is AnyNode => dep != null),
+  }
 }
 
 export type Replacement = readonly [source: AnyNode, replacement: AnyNode | Layer.Any]
