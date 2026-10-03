@@ -422,13 +422,18 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     }) {
       yield* requireSession(ctx.params.sessionID)
       const instance = yield* InstanceState.context
-      if (instance.project.vcs !== "git") return unavailableGuardScan()
-      const changes = yield* vcs.diff("git").pipe(
-        Effect.map((files) => files.map((file) => ({ file: file.file, before: "", after: "", diff: file.patch ?? "" }))),
-        Effect.catchCause(() => Effect.succeed(undefined)),
-      )
-      if (!changes) return unavailableGuardScan()
-      return yield* guard.scan(changes, "manual")
+      const directory = yield* InstanceState.directory
+      if (instance.project.vcs === "git") {
+        const changes = yield* vcs.diff("git").pipe(
+          Effect.map((files) => files.map((file) => ({ file: file.file, before: "", after: "", diff: file.patch ?? "" }))),
+          Effect.catchCause(() => Effect.succeed(undefined)),
+        )
+        if (changes) return yield* guard.scan(changes, "manual")
+      }
+      // Not a git repo, or git diff failed: audit the working tree directly so
+      // the manual scan returns findings instead of "check unavailable".
+      const audit = yield* guard.scanWorkspace(directory)
+      return audit ?? unavailableGuardScan()
     })
 
     const guardResolve = Effect.fn("SessionHttpApi.guardResolve")(function* (ctx: {

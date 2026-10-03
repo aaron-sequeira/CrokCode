@@ -14,29 +14,26 @@ const GATEWAY = `${BASE}/functions/v1/crokapi/v1`
 
 // `image: true` = the model accepts image input (declared so the TUI sends
 // attachments instead of stripping them). Based on the upstream OpenRouter
-// modalities. GLM 5.2 and DeepSeek V4 are text-only.
+// modalities. Open-weight models only — bring your own key for Claude/GPT.
+// Keep in sync with the gateway PRICING, core crokapi.ts and the TUI dialog.
 const MODELS: Record<string, { name: string; image?: boolean; cost: { input: number; output: number } }> = {
   "deepseek/deepseek-v4-flash": { name: "DeepSeek V4 Flash", cost: { input: 0.14, output: 0.28 } },
   "z-ai/glm-4.7-flash": { name: "GLM 4.7 Flash", cost: { input: 0.08, output: 0.56 } },
   "xiaomi/mimo-v2.5": { name: "MiMo V2.5", image: true, cost: { input: 0.2, output: 0.39 } },
   "qwen/qwen3-coder-flash": { name: "Qwen3 Coder Flash", cost: { input: 0.28, output: 1.36 } },
+  "deepseek/deepseek-v4.1-flash": { name: "DeepSeek V4.1 Flash", image: true, cost: { input: 0.42, output: 1.68 } },
   "deepseek/deepseek-v4-pro": { name: "DeepSeek V4 Pro", cost: { input: 0.6, output: 1.22 } },
   "xiaomi/mimo-v2.5-pro": { name: "MiMo V2.5 Pro", cost: { input: 0.6, output: 1.22 } },
   "minimax/minimax-m3": { name: "MiniMax M3", image: true, cost: { input: 0.42, output: 1.68 } },
   "qwen/qwen3.7-plus": { name: "Qwen3.7 Plus", image: true, cost: { input: 0.45, output: 1.79 } },
   "z-ai/glm-5.2": { name: "GLM 5.2", cost: { input: 1.11, output: 3.49 } },
   "moonshotai/kimi-k2.7-code": { name: "Kimi K2.7 Code", image: true, cost: { input: 1.15, output: 5.25 } },
-  "anthropic/claude-haiku-4.5": { name: "Claude Haiku 4.5", image: true, cost: { input: 1.4, output: 7 } },
+  "z-ai/glm-5.3": { name: "GLM 5.3", cost: { input: 1.96, output: 6.16 } },
   "x-ai/grok-4.5": { name: "Grok 4.5", image: true, cost: { input: 2.8, output: 8.4 } },
+  "z-ai/glm-5.3-prime": { name: "GLM 5.3 Prime", cost: { input: 3.92, output: 12.32 } },
   "google/gemini-3.6-flash": { name: "Gemini 3.6 Flash", image: true, cost: { input: 2.1, output: 10.5 } },
-  "anthropic/claude-sonnet-5": { name: "Claude Sonnet 5", image: true, cost: { input: 2.8, output: 14 } },
   "google/gemini-3.1-pro-preview": { name: "Gemini 3.1 Pro", image: true, cost: { input: 2.8, output: 16.8 } },
-  "openai/gpt-5.4": { name: "GPT-5.4", image: true, cost: { input: 3.5, output: 21 } },
-  "openai/gpt-5.6-terra": { name: "GPT-5.6 Terra", image: true, cost: { input: 3.5, output: 21 } },
   "moonshotai/kimi-k3": { name: "Kimi K3", image: true, cost: { input: 4.2, output: 21 } },
-  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true, cost: { input: 7, output: 35 } },
-  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true, cost: { input: 7, output: 42 } },
-  "anthropic/claude-fable-5": { name: "Fable 5", image: true, cost: { input: 14, output: 70 } },
 }
 
 // A config model entry with the capabilities crokcode reads. `reasoning: true`
@@ -52,20 +49,23 @@ function configModel(def: { name: string; image?: boolean; cost: { input: number
   }
 }
 
-// The provider written per plan: named after the plan, exposing only its models.
-// Must match CROKGO_MODELS in the gateway and the TUI connect dialog. Falls back
-// to "crokapi" / all models when the account has no detectable plan.
+// The provider written per plan: named after the plan. Every plan can use every
+// model (margin comes from the usage caps, not model gating), so all plans map
+// to the full catalog. Falls back to "crokapi" when the account has no plan.
 const PLAN_NAME: Record<string, string> = {
-  crokgo: "CrokGo",
   crokpro: "CrokPro",
+  "crok-king": "Crok-King",
+  "crok-king-max": "Crok-King Max",
   "crok-as-you-go": "Crok-as-you-go",
 }
 const PLAN_MODEL_IDS: Record<string, string[]> = {
-  crokgo: ["deepseek/deepseek-v4-flash", "z-ai/glm-4.7-flash", "xiaomi/mimo-v2.5", "qwen/qwen3-coder-flash", "deepseek/deepseek-v4-pro", "xiaomi/mimo-v2.5-pro", "minimax/minimax-m3", "qwen/qwen3.7-plus", "z-ai/glm-5.2"],
   crokpro: Object.keys(MODELS),
+  "crok-king": Object.keys(MODELS),
+  "crok-king-max": Object.keys(MODELS),
   "crok-as-you-go": Object.keys(MODELS),
 }
-const CROK_PROVIDER_IDS = ["crokapi", "crokgo", "crokpro", "crok-as-you-go"]
+// Includes the retired "crokgo" so a stale crokgo provider is cleaned up on login.
+const CROK_PROVIDER_IDS = ["crokapi", "crokgo", "crokpro", "crok-king", "crok-king-max", "crok-as-you-go"]
 
 async function cliAuth(body: Record<string, unknown>) {
   const response = await fetch(CLI_AUTH, {
@@ -191,7 +191,7 @@ export const LoginCommand = {
       return
     }
 
-    const sample = written.providerID === "crokgo" ? "z-ai/glm-5.2" : "anthropic/claude-opus-4.8"
+    const sample = "z-ai/glm-5.3"
     const planLabel = PLAN_NAME[written.providerID] ?? "CrokAPI"
     prompts.outro(
       `Connected as ${planLabel}. Config saved to ${written.file}\n` +

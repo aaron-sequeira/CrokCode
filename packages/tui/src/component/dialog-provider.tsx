@@ -26,13 +26,14 @@ const PROVIDER_PRIORITY: Record<string, number> = {
   google: 3,
 }
 
-// CrokCode plans, shown at the top of "Popular". All three browser-pair and
-// connect the same `crokapi` gateway provider; the gateway enforces the
-// account's real plan (so a key only works with the plan the user has).
+// CrokCode plans, shown at the top of "Popular". All browser-pair and connect
+// the same `crokapi` gateway provider; the gateway enforces the account's real
+// plan. Every plan gets all models; the tier sets the daily/weekly caps.
 const CROK_PLANS = [
-  { id: "crokgo", title: "CrokGo", description: "$5 first month, then $10/mo — 9 efficient models" },
-  { id: "crokpro", title: "CrokPro", description: "$20/mo — all 21 models (Recommended)" },
-  { id: "crok-as-you-go", title: "Crok-as-you-go", description: "Pay as you go — all 21 models, no caps" },
+  { id: "crokpro", title: "CrokPro", description: "$20/mo — all models · $5/day · $18/week" },
+  { id: "crok-king", title: "Crok-King", description: "$100/mo — all models · $20/day · $70/week (Recommended)" },
+  { id: "crok-king-max", title: "Crok-King Max", description: "$200/mo — all models · $40/day · $150/week" },
+  { id: "crok-as-you-go", title: "Crok-as-you-go", description: "Pay as you go — all models, no caps" },
 ] as const
 
 const CUSTOM_PROVIDER_OPTION_VALUE = "__crokcode_custom_provider__"
@@ -557,41 +558,40 @@ const CROK_CLI_AUTH = `${CROK_AUTH_BASE}/functions/v1/cli-auth`
 const CROK_GATEWAY = `${CROK_AUTH_BASE}/functions/v1/crokapi/v1`
 
 // `image: true` = accepts image input (from upstream OpenRouter modalities), so
-// the TUI sends attachments instead of stripping them. GLM/DeepSeek are text-only.
+// the TUI sends attachments instead of stripping them. Open-weight models only.
+// Keep in sync with login.ts MODELS, the gateway PRICING and core crokapi.ts.
 const CROK_MODELS: Record<string, { name: string; image?: boolean; cost: { input: number; output: number } }> = {
   "deepseek/deepseek-v4-flash": { name: "DeepSeek V4 Flash", cost: { input: 0.14, output: 0.28 } },
   "z-ai/glm-4.7-flash": { name: "GLM 4.7 Flash", cost: { input: 0.08, output: 0.56 } },
   "xiaomi/mimo-v2.5": { name: "MiMo V2.5", image: true, cost: { input: 0.2, output: 0.39 } },
   "qwen/qwen3-coder-flash": { name: "Qwen3 Coder Flash", cost: { input: 0.28, output: 1.36 } },
+  "deepseek/deepseek-v4.1-flash": { name: "DeepSeek V4.1 Flash", image: true, cost: { input: 0.42, output: 1.68 } },
   "deepseek/deepseek-v4-pro": { name: "DeepSeek V4 Pro", cost: { input: 0.6, output: 1.22 } },
   "xiaomi/mimo-v2.5-pro": { name: "MiMo V2.5 Pro", cost: { input: 0.6, output: 1.22 } },
   "minimax/minimax-m3": { name: "MiniMax M3", image: true, cost: { input: 0.42, output: 1.68 } },
   "qwen/qwen3.7-plus": { name: "Qwen3.7 Plus", image: true, cost: { input: 0.45, output: 1.79 } },
   "z-ai/glm-5.2": { name: "GLM 5.2", cost: { input: 1.11, output: 3.49 } },
   "moonshotai/kimi-k2.7-code": { name: "Kimi K2.7 Code", image: true, cost: { input: 1.15, output: 5.25 } },
-  "anthropic/claude-haiku-4.5": { name: "Claude Haiku 4.5", image: true, cost: { input: 1.4, output: 7 } },
+  "z-ai/glm-5.3": { name: "GLM 5.3", cost: { input: 1.96, output: 6.16 } },
   "x-ai/grok-4.5": { name: "Grok 4.5", image: true, cost: { input: 2.8, output: 8.4 } },
+  "z-ai/glm-5.3-prime": { name: "GLM 5.3 Prime", cost: { input: 3.92, output: 12.32 } },
   "google/gemini-3.6-flash": { name: "Gemini 3.6 Flash", image: true, cost: { input: 2.1, output: 10.5 } },
-  "anthropic/claude-sonnet-5": { name: "Claude Sonnet 5", image: true, cost: { input: 2.8, output: 14 } },
   "google/gemini-3.1-pro-preview": { name: "Gemini 3.1 Pro", image: true, cost: { input: 2.8, output: 16.8 } },
-  "openai/gpt-5.4": { name: "GPT-5.4", image: true, cost: { input: 3.5, output: 21 } },
-  "openai/gpt-5.6-terra": { name: "GPT-5.6 Terra", image: true, cost: { input: 3.5, output: 21 } },
   "moonshotai/kimi-k3": { name: "Kimi K3", image: true, cost: { input: 4.2, output: 21 } },
-  "anthropic/claude-opus-4.8": { name: "Claude Opus 4.8", image: true, cost: { input: 7, output: 35 } },
-  "openai/gpt-5.6-sol": { name: "GPT-5.6 Sol", image: true, cost: { input: 7, output: 42 } },
-  "anthropic/claude-fable-5": { name: "Fable 5", image: true, cost: { input: 14, output: 70 } },
 }
 
-// Display name + model subset per plan. CrokGo is budget-only; the gateway
-// enforces this too, so these lists must match CROKGO_MODELS in the gateway.
+// Every plan can use every model (margin comes from the usage caps). Names and
+// model lists match login.ts and the gateway.
 const CROK_PLAN_NAME: Record<string, string> = {
-  crokgo: "CrokGo",
   crokpro: "CrokPro",
+  "crok-king": "Crok-King",
+  "crok-king-max": "Crok-King Max",
   "crok-as-you-go": "Crok-as-you-go",
 }
 const CROK_PLAN_MODEL_IDS: Record<string, string[]> = {
-  crokgo: ["deepseek/deepseek-v4-flash", "z-ai/glm-4.7-flash", "xiaomi/mimo-v2.5", "qwen/qwen3-coder-flash", "deepseek/deepseek-v4-pro", "xiaomi/mimo-v2.5-pro", "minimax/minimax-m3", "qwen/qwen3.7-plus", "z-ai/glm-5.2"],
   crokpro: Object.keys(CROK_MODELS),
+  "crok-king": Object.keys(CROK_MODELS),
+  "crok-king-max": Object.keys(CROK_MODELS),
   "crok-as-you-go": Object.keys(CROK_MODELS),
 }
 // Builds the provider block for a plan: named after the plan, exposing only

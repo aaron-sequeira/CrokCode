@@ -257,6 +257,9 @@ function isGenericSecret(value: string | undefined) {
 
 export interface Interface {
   readonly scan: (changes: ReadonlyArray<Change>, phase?: Phase) => Effect.Effect<GuardScanResult>
+  // Audit the working tree directly (no git needed). Returns undefined only if
+  // the root can't be read at all.
+  readonly scanWorkspace: (root: string) => Effect.Effect<GuardScanResult | undefined>
   readonly captureWorkspace: (root: string) => Effect.Effect<string | undefined>
   readonly diffWorkspace: (snapshot: string) => Effect.Effect<Change[] | undefined>
   readonly restoreWorkspace: (snapshot: string) => Effect.Effect<boolean>
@@ -280,6 +283,29 @@ const layer = Layer.sync(Service, () => {
 
   return Service.of({
     scan: (changes, phase) => Effect.succeed(scan(changes, phase)),
+    scanWorkspace: (root) =>
+      Effect.promise(async () => {
+        // No git diff to work from (not a repo, or diff failed): audit the
+        // working tree so the manual scan returns findings instead of
+        // "check unavailable". Each supported file's content is scanned as
+        // added lines.
+        const files = await capture(root)
+        if (!files) return undefined
+        const changes: Change[] = []
+        for (const [relative, entry] of files) {
+          if (entry.kind !== "file" || !/\.(?:[cm]?[jt]sx?|json)$/i.test(relative)) continue
+          if (changes.length >= 4000) break // ponytail: bound a whole-tree audit; raise if large repos need it
+          const content = decode(entry.bytes)
+          if (!content) continue
+          changes.push({
+            file: path.join(root, relative),
+            before: "",
+            after: content,
+            diff: createTwoFilesPatch(relative, relative, "", content),
+          })
+        }
+        return scan(changes, "manual")
+      }),
     captureWorkspace: (root) =>
       Effect.promise(async () => {
         // ponytail: cap in-memory snapshots at 16; evict the oldest instead of failing every new

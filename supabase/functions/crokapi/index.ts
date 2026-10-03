@@ -19,52 +19,35 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "z-ai/glm-4.7-flash": { input: 0.08, output: 0.56 },
   "xiaomi/mimo-v2.5": { input: 0.2, output: 0.39 },
   "qwen/qwen3-coder-flash": { input: 0.28, output: 1.36 },
+  "deepseek/deepseek-v4.1-flash": { input: 0.42, output: 1.68 },
   "deepseek/deepseek-v4-pro": { input: 0.6, output: 1.22 },
   "xiaomi/mimo-v2.5-pro": { input: 0.6, output: 1.22 },
   "minimax/minimax-m3": { input: 0.42, output: 1.68 },
   "qwen/qwen3.7-plus": { input: 0.45, output: 1.79 },
   "z-ai/glm-5.2": { input: 1.11, output: 3.49 },
   "moonshotai/kimi-k2.7-code": { input: 1.15, output: 5.25 },
-  "anthropic/claude-haiku-4.5": { input: 1.4, output: 7 },
+  "z-ai/glm-5.3": { input: 1.96, output: 6.16 },
   "x-ai/grok-4.5": { input: 2.8, output: 8.4 },
+  "z-ai/glm-5.3-prime": { input: 3.92, output: 12.32 },
   "google/gemini-3.6-flash": { input: 2.1, output: 10.5 },
-  "anthropic/claude-sonnet-5": { input: 2.8, output: 14 },
   "google/gemini-3.1-pro-preview": { input: 2.8, output: 16.8 },
-  "openai/gpt-5.4": { input: 3.5, output: 21 },
-  "openai/gpt-5.6-terra": { input: 3.5, output: 21 },
   "moonshotai/kimi-k3": { input: 4.2, output: 21 },
-  "anthropic/claude-opus-4.8": { input: 7, output: 35 },
-  "openai/gpt-5.6-sol": { input: 7, output: 42 },
-  "anthropic/claude-fable-5": { input: 14, output: 70 },
 }
 // ponytail: unlisted models bill at a flat default until the catalog is dynamic.
 const FALLBACK_PRICE = { input: 2, output: 8 }
 
-// Plan -> models. CrokGo is limited to budget models so a $5 plan can never
-// run a premium model (protects margin). CrokPro and Crok-as-you-go get all
-// models; usage is still capped by each account's credit balance/allowance.
-// Keep in sync with the plan model lists in the TUI and login command.
-const CROKGO_MODELS = new Set([
-  "deepseek/deepseek-v4-flash",
-  "z-ai/glm-4.7-flash",
-  "xiaomi/mimo-v2.5",
-  "qwen/qwen3-coder-flash",
-  "deepseek/deepseek-v4-pro",
-  "xiaomi/mimo-v2.5-pro",
-  "minimax/minimax-m3",
-  "qwen/qwen3.7-plus",
-  "z-ai/glm-5.2",
-])
-
+// Every plan may call every model; margin is protected by the per-plan daily/
+// weekly usage caps (plan_limits), not by withholding models. PAYG is uncapped.
 const PLAN_LABEL: Record<string, string> = {
-  crokgo: "CrokGo",
   crokpro: "CrokPro",
-  crok_as_you_go: "Crok-as-you-go",
+  "crok-king": "Crok-King",
+  "crok-king-max": "Crok-King Max",
+  "crok-as-you-go": "Crok-as-you-go",
 }
 
-// Which model ids a plan may call. null = all models.
-function modelsForPlan(plan: string | null | undefined): Set<string> | null {
-  return plan === "crokgo" ? CROKGO_MODELS : null
+// Which model ids a plan may call. null = all models (every plan today).
+function modelsForPlan(_plan: string | null | undefined): Set<string> | null {
+  return null
 }
 
 const CORS = {
@@ -137,10 +120,10 @@ Deno.serve(async (req) => {
     const planLabel = PLAN_LABEL[account.plan as string] ?? "your plan"
     const message =
       account.reason === "weekly_limit"
-        ? `Weekly usage limit reached for ${planLabel} (${dollars(account.weekly_limit)}/week). Resets Monday (UTC). Upgrade to CrokPro or use Crok-as-you-go for uncapped pay-per-use.`
+        ? `Weekly usage limit reached for ${planLabel} (${dollars(account.weekly_limit)}/week). Resets Monday (UTC). Upgrade to Crok-King or use Crok-as-you-go for uncapped pay-per-use.`
         : account.reason === "daily_limit"
-          ? `Daily usage limit reached for ${planLabel} (${dollars(account.daily_limit)}/day). Resets at midnight (UTC). Upgrade to CrokPro or use Crok-as-you-go.`
-          : "No active CrokCode plan and no remaining Crok-as-you-go credits. Subscribe to CrokGo or CrokPro, or top up Crok-as-you-go."
+          ? `Daily usage limit reached for ${planLabel} (${dollars(account.daily_limit)}/day). Resets at midnight (UTC). Upgrade to Crok-King or use Crok-as-you-go.`
+          : "No active CrokCode plan and no remaining Crok-as-you-go credits. Subscribe to CrokPro or Crok-King, or top up Crok-as-you-go."
     return json({ error: { message, type: "insufficient_quota" } }, 429)
   }
 
