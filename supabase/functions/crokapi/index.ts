@@ -33,8 +33,6 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "google/gemini-3.1-pro-preview": { input: 2.8, output: 16.8 },
   "moonshotai/kimi-k3": { input: 4.2, output: 21 },
 }
-// ponytail: unlisted models bill at a flat default until the catalog is dynamic.
-const FALLBACK_PRICE = { input: 2, output: 8 }
 
 // CrokPro gets the budget models (up to GLM 5.2); Crok-King, Crok-King Max and
 // PAYG get everything. Caps (plan_limits) still bound spend on every plan.
@@ -84,7 +82,7 @@ async function sha256(value: string) {
 }
 
 function costCents(model: string, input: number, output: number) {
-  const price = PRICING[model] ?? FALLBACK_PRICE
+  const price = PRICING[model]
   return ((input / 1_000_000) * price.input + (output / 1_000_000) * price.output) * 100
 }
 
@@ -165,6 +163,20 @@ Deno.serve(async (req) => {
   if (!upstreamKey) return json({ error: { message: "Gateway not configured", type: "server_error" } }, 500)
 
   const model = typeof body.model === "string" ? body.model : "unknown"
+
+  // Only priced catalog models may pass: anything else would be proxied to
+  // OpenRouter at its real cost with nothing correct to bill.
+  if (!(model in PRICING)) {
+    return json(
+      {
+        error: {
+          message: `${model} is not in the CrokCode catalog. Run /models to see what your plan includes.`,
+          type: "model_not_permitted",
+        },
+      },
+      403,
+    )
+  }
 
   // Enforce plan scope: a key only works with its plan's models.
   if (planModels && !planModels.has(model)) {
