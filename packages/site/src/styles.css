@@ -595,8 +595,19 @@ p {
 
 .plans {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.plan-caps {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 11px;
+  margin-top: 12px;
 }
 
 .plan {
@@ -959,9 +970,11 @@ p {
     gap: 40px;
   }
   .grid-3,
-  .plans,
   .app-grid {
     grid-template-columns: 1fr;
+  }
+  .plans {
+    grid-template-columns: repeat(2, 1fr);
   }
   .stats {
     grid-template-columns: repeat(2, 1fr);
@@ -973,7 +986,8 @@ p {
 }
 
 @media (max-width: 560px) {
-  .grid-2 {
+  .grid-2,
+  .plans {
     grid-template-columns: 1fr;
   }
 }

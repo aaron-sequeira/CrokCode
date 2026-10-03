@@ -4,8 +4,10 @@ import type { User } from "@supabase/supabase-js"
 import { api, GATEWAY_URL, loadAccount, money, supabase, type Account, type ApiKey } from "../lib/api"
 
 const PLAN_LABEL: Record<string, string> = {
-  crokgo: "CrokGo",
   crokpro: "CrokPro",
+  "crok-king": "Crok-King",
+  "crok-king-max": "Crok-King Max",
+  "crok-as-you-go": "Crok-as-you-go",
   crok_as_you_go: "Crok-as-you-go",
 }
 
@@ -32,11 +34,12 @@ function Meter({ label, used, limit, hint }: { label: string; used: number; limi
   )
 }
 
-type TabId = "overview" | "crokgo" | "crokpro" | "payg" | "keys" | "usage"
+type TabId = "overview" | "crokpro" | "crok-king" | "crok-king-max" | "payg" | "keys" | "usage"
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "crokgo", label: "CrokGo" },
   { id: "crokpro", label: "CrokPro" },
+  { id: "crok-king", label: "Crok-King" },
+  { id: "crok-king-max", label: "Crok-King Max" },
   { id: "payg", label: "Crok-as-you-go" },
   { id: "keys", label: "API keys / CLI" },
   { id: "usage", label: "Recent usage" },
@@ -277,24 +280,6 @@ export function Dashboard({ user }: { user: User }) {
           </>
         )}
 
-        {/* ---- CrokGo ---- */}
-        {tab === "crokgo" && (
-          <div className="panel">
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <h3>CrokGo</h3>
-              <b style={{ color: "var(--croc)" }}>$5 first month, then $10/mo</b>
-              {account?.plan === "crokgo" && <span className="note note-ok" style={{ margin: 0 }}>Current plan</span>}
-            </div>
-            <p style={{ color: "var(--muted)", fontSize: 14, margin: "10px 0 18px" }}>
-              The efficient models — GLM 5.2, DeepSeek V4, Kimi K3 — with daily and weekly usage limits
-              (<b style={{ color: "var(--bone)" }}>$0.50/day · $1.50/week</b>). Guard runs on every edit.
-            </p>
-            <button className="btn btn-primary" disabled={!!busy || account?.plan === "crokgo"} onClick={() => subscribe("crokgo")}>
-              {busy === "crokgo" ? "Opening…" : account?.plan === "crokgo" ? "Subscribed" : "Subscribe to CrokGo"}
-            </button>
-          </div>
-        )}
-
         {/* ---- CrokPro ---- */}
         {tab === "crokpro" && (
           <div className="panel">
@@ -304,11 +289,47 @@ export function Dashboard({ user }: { user: User }) {
               {account?.plan === "crokpro" && <span className="note note-ok" style={{ margin: 0 }}>Current plan</span>}
             </div>
             <p style={{ color: "var(--muted)", fontSize: 14, margin: "10px 0 18px" }}>
-              Every CrokAPI model, including the frontier ones (Claude Opus 4.8, GPT-5.6 Sol, Grok 5, Gemini 3.5 Pro).
-              Higher daily and weekly limits (<b style={{ color: "var(--bone)" }}>$2/day · $3.50/week</b>).
+              Every open-weight model on CrokAPI — GLM 5.3, DeepSeek V4, Qwen, Kimi, Grok, Gemini. Daily and weekly
+              limits (<b style={{ color: "var(--bone)" }}>$5/day · $18/week</b>). Guard runs on every edit.
             </p>
             <button className="btn btn-primary" disabled={!!busy || account?.plan === "crokpro"} onClick={() => subscribe("crokpro")}>
               {busy === "crokpro" ? "Opening…" : account?.plan === "crokpro" ? "Subscribed" : "Subscribe to CrokPro"}
+            </button>
+          </div>
+        )}
+
+        {/* ---- Crok-King ---- */}
+        {tab === "crok-king" && (
+          <div className="panel">
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <h3>Crok-King</h3>
+              <b style={{ color: "var(--croc)" }}>$100/mo</b>
+              {account?.plan === "crok-king" && <span className="note note-ok" style={{ margin: 0 }}>Current plan</span>}
+            </div>
+            <p style={{ color: "var(--muted)", fontSize: 14, margin: "10px 0 18px" }}>
+              All 17 models, with 4× CrokPro throughput for serious daily coding
+              (<b style={{ color: "var(--bone)" }}>$20/day · $70/week</b>).
+            </p>
+            <button className="btn btn-primary" disabled={!!busy || account?.plan === "crok-king"} onClick={() => subscribe("crok-king")}>
+              {busy === "crok-king" ? "Opening…" : account?.plan === "crok-king" ? "Subscribed" : "Subscribe to Crok-King"}
+            </button>
+          </div>
+        )}
+
+        {/* ---- Crok-King Max ---- */}
+        {tab === "crok-king-max" && (
+          <div className="panel">
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <h3>Crok-King Max</h3>
+              <b style={{ color: "var(--croc)" }}>$200/mo</b>
+              {account?.plan === "crok-king-max" && <span className="note note-ok" style={{ margin: 0 }}>Current plan</span>}
+            </div>
+            <p style={{ color: "var(--muted)", fontSize: 14, margin: "10px 0 18px" }}>
+              All 17 models with the highest caps, for all-day heavy multi-agent use
+              (<b style={{ color: "var(--bone)" }}>$40/day · $150/week</b>).
+            </p>
+            <button className="btn btn-primary" disabled={!!busy || account?.plan === "crok-king-max"} onClick={() => subscribe("crok-king-max")}>
+              {busy === "crok-king-max" ? "Opening…" : account?.plan === "crok-king-max" ? "Subscribed" : "Subscribe to Crok-King Max"}
             </button>
           </div>
         )}

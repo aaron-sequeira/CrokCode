@@ -17,7 +17,7 @@ const FEATURES = [
   {
     mark: "MODELS",
     title: "Any provider, or ours",
-    body: "Bring your own Anthropic, OpenAI, Google or local keys, or route everything through CrokAPI on a single plan. 160+ providers carried over from upstream.",
+    body: "Bring your own Anthropic, OpenAI, Google or local keys, or route through CrokAPI's open-model gateway on a single plan. 160+ providers carried over from upstream.",
   },
   {
     mark: "TUI",
@@ -110,50 +110,62 @@ const VOICE = [
 ]
 
 const MODELS = [
-  ["GPT-5.6 Sol", "openai/gpt-5.6-sol"],
-  ["Claude Opus 4.8", "anthropic/claude-opus-4.8"],
-  ["Fable 5", "anthropic/claude-fable-5"],
-  ["Claude Sonnet 5", "anthropic/claude-sonnet-5"],
+  ["GLM 5.3 Prime", "z-ai/glm-5.3-prime"],
+  ["GLM 5.3", "z-ai/glm-5.3"],
+  ["DeepSeek V4.1 Flash", "deepseek/deepseek-v4.1-flash"],
+  ["DeepSeek V4 Pro", "deepseek/deepseek-v4-pro"],
   ["Kimi K3", "moonshotai/kimi-k3"],
   ["Grok 4.5", "x-ai/grok-4.5"],
   ["Gemini 3.1 Pro", "google/gemini-3.1-pro-preview"],
+  ["Gemini 3.6 Flash", "google/gemini-3.6-flash"],
   ["GLM 5.2", "z-ai/glm-5.2"],
-  ["DeepSeek V4 Pro", "deepseek/deepseek-v4-pro"],
+  ["Kimi K2.7 Code", "moonshotai/kimi-k2.7-code"],
   ["MiniMax M3", "minimax/minimax-m3"],
   ["Qwen3.7 Plus", "qwen/qwen3.7-plus"],
+  ["DeepSeek V4 Flash", "deepseek/deepseek-v4-flash"],
+  ["MiMo V2.5 Pro", "xiaomi/mimo-v2.5-pro"],
+  ["Qwen3 Coder Flash", "qwen/qwen3-coder-flash"],
   ["MiMo V2.5", "xiaomi/mimo-v2.5"],
+  ["GLM 4.7 Flash", "z-ai/glm-4.7-flash"],
 ]
 
 const PLANS = [
-  {
-    id: "crokgo",
-    name: "CrokGo",
-    price: "$5",
-    per: " first month",
-    for: "Then $10/mo. 9 efficient models (GLM, DeepSeek, Qwen, MiniMax, MiMo) with daily + weekly usage limits.",
-    features: ["9 efficient coding models", "Guard on every edit", "$0.50/day · $1.50/week", "Community support"],
-  },
   {
     id: "crokpro",
     name: "CrokPro",
     price: "$20",
     per: "/month",
-    for: "For people who reach for the frontier models all day.",
-    features: [
-      "All 21 models (Opus, GPT, Grok, Gemini…)",
-      "Higher daily & weekly limits",
-      "Priority routing on frontier models",
-      "Usage analytics",
-    ],
+    caps: "$5/day · $18/week",
+    for: "Every model, light daily use.",
+    features: ["All 17 open models", "Guard on every edit", "Local models free", "Usage analytics"],
+  },
+  {
+    id: "crok-king",
+    name: "Crok-King",
+    price: "$100",
+    per: "/month",
+    caps: "$20/day · $70/week",
+    for: "Serious daily coding without watching the meter.",
+    features: ["All 17 models", "4× CrokPro throughput", "Priority routing", "Usage analytics"],
     featured: true,
+  },
+  {
+    id: "crok-king-max",
+    name: "Crok-King Max",
+    price: "$200",
+    per: "/month",
+    caps: "$40/day · $150/week",
+    for: "All-day, heavy multi-agent use.",
+    features: ["All 17 models", "Highest caps", "Priority routing", "Usage analytics"],
   },
   {
     id: "crok-as-you-go",
     name: "Crok-as-you-go",
     price: "Top up",
     per: " any amount",
-    for: "No caps. Pay per token — the tier for heavy, all-day agentic work.",
-    features: ["Every model, no daily/weekly caps", "Pay only for tokens used", "Credits never expire", "Top up from $5"],
+    caps: "No caps · pay per token",
+    for: "No caps. Pay per token — heavy, all-day agentic work.",
+    features: ["Every model, no caps", "Pay only for tokens used", "Credits never expire", "Top up from $5"],
   },
 ]
 
@@ -196,7 +208,7 @@ const FAQ = [
   ],
   [
     "How do the plan limits and pay-as-you-go work?",
-    "CrokGo and CrokPro give you a daily and weekly usage budget — spend up to that and it resets each day and each Monday. Great for the efficient models and everyday work. If you need uncapped, all-day heavy use on the frontier models, Crok-as-you-go bills only for the tokens you use, drawn from a balance you top up from $5.",
+    "CrokPro, Crok-King and Crok-King Max each give you a daily and weekly spend budget that resets each day and each Monday, and every plan can use every model. Connecting your own providers never counts against the cap. If you need uncapped, all-day heavy use, Crok-as-you-go bills only for the tokens you use, drawn from a balance you top up from $5.",
   ],
   [
     "Is it really open source?",
@@ -415,10 +427,11 @@ export function Landing() {
           <div className="wrap">
             <div className="section-head">
               <div className="eyebrow">CrokAPI</div>
-              <h2>One key, the frontier models</h2>
+              <h2>One key, open-weight models</h2>
               <p className="lede">
                 CrokAPI is our hosted gateway. It speaks the OpenAI API, so it drops into anything, and it meters real
-                token counts against your plan.
+                token counts against your plan. Open-weight models only, billed at cost — bring your own key for Claude
+                or GPT.
               </p>
             </div>
             <div className="models">
@@ -527,8 +540,8 @@ export function Landing() {
               <div className="eyebrow">Pricing</div>
               <h2>Pay for the gateway, not the agent</h2>
               <p className="lede">
-                The CLI is free and always will be. Plans cover CrokAPI, the hosted gateway. Bring your own keys and
-                you pay us nothing.
+                The CLI is free and always will be. Plans cover CrokAPI, and every plan can use every model — what
+                changes is how much you can spend per day and week. Bring your own keys and you pay us nothing.
               </p>
             </div>
             <div className="plans">
@@ -539,6 +552,7 @@ export function Landing() {
                     {plan.price}
                     <small>{plan.per}</small>
                   </div>
+                  <div className="plan-caps">{plan.caps}</div>
                   <p className="plan-for">{plan.for}</p>
                   <ul>
                     {plan.features.map((feature) => (

@@ -1,7 +1,7 @@
 // Create a Stripe Checkout session for a CrokCode plan.
 //
-// POST { plan: "crokgo" | "crokpro" | "crok-as-you-go", success_url?, cancel_url? }
-// -> { url }
+// POST { plan: "crokpro" | "crok-king" | "crok-king-max" | "crok-as-you-go",
+//        success_url?, cancel_url? } -> { url }
 import Stripe from "npm:stripe@17"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 
@@ -9,16 +9,14 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-// Price ids come from env so switching TEST -> LIVE is just setting secrets
-// (STRIPE_PRICE_CROKGO / _CROKPRO / _PAYG), no redeploy. Defaults are the
-// current test-mode objects.
-// CrokGo's first-month discount is a customer-entered promo code (see
-// allow_promotion_codes below), not an auto-applied coupon, so no coupon id
-// is configured here.
+// Price ids come from env so switching between Stripe objects is just setting a
+// secret, no redeploy. Defaults are the current live objects. The Crok-King
+// defaults are the live $100/$200 monthly prices.
 const env = (k: string, fallback: string) => Deno.env.get(k) ?? fallback
 const PRICES: Record<string, { price: string; mode: "subscription" | "payment" }> = {
-  crokgo: { price: env("STRIPE_PRICE_CROKGO", "price_1Tw8nNFqcQDpQanawhK8CWrq"), mode: "subscription" },
   crokpro: { price: env("STRIPE_PRICE_CROKPRO", "price_1TvhxiFqcQDpQanaxdA1phYl"), mode: "subscription" },
+  "crok-king": { price: env("STRIPE_PRICE_CROK_KING", "price_1UMG7YFqcQDpQanaVTPbtWq1"), mode: "subscription" },
+  "crok-king-max": { price: env("STRIPE_PRICE_CROK_KING_MAX", "price_1UMG90FqcQDpQanaVdUgSXVa"), mode: "subscription" },
   "crok-as-you-go": { price: env("STRIPE_PRICE_PAYG", "price_1TvhyNFqcQDpQanaCDRnJsQS"), mode: "payment" },
 }
 
