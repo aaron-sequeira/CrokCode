@@ -1057,3 +1057,250 @@ p {
   padding: 10px 0;
   outline: none;
 }
+
+/* ============================================================
+   Section redesign — numbered rails, top-tick cards, model price
+   table. Hero and nav above are unchanged. Reuses the tokens above.
+   ============================================================ */
+
+.sec {
+  border-top: 1px solid var(--line);
+  padding: var(--rhythm) 0;
+}
+
+.sec-grid {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 40px;
+}
+
+.sec-rail {
+  position: sticky;
+  top: 90px;
+  align-self: start;
+  height: max-content;
+}
+
+.sec-rail .num {
+  display: block;
+  font-family: var(--mono);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: var(--ink-3);
+  -webkit-text-stroke: 1px var(--line-2);
+}
+
+.sec-rail .vlabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  writing-mode: vertical-rl;
+  margin-top: 14px;
+}
+
+.cards {
+  display: grid;
+  gap: 14px;
+}
+.cards.c3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.cards.c2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.card {
+  position: relative;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px 22px 22px;
+  min-width: 0;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.card::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 22px;
+  width: 26px;
+  height: 2px;
+  background: var(--croc);
+}
+.card:hover {
+  border-color: var(--line-2);
+  transform: translateY(-2px);
+}
+.card .mark {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--croc);
+  margin-bottom: 14px;
+}
+.card h3 {
+  margin-bottom: 9px;
+}
+.card p {
+  color: var(--muted);
+  font-size: 14px;
+}
+.card.sev-crit::before {
+  background: var(--danger);
+}
+.card.sev-warn::before {
+  background: var(--amber);
+}
+.card.sev-crit .mark {
+  color: var(--danger);
+}
+.card.sev-warn .mark {
+  color: var(--amber);
+}
+.card .rule {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--bone);
+  margin-bottom: 8px;
+}
+
+.demo-split {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 14px;
+  align-items: start;
+}
+
+/* model price table */
+.mcat {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mcat-group {
+  border-top: 1px solid var(--line);
+}
+.mcat-group:first-child {
+  border-top: none;
+}
+.mcat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--croc);
+}
+.mcat-head span {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mrow {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.mrow:first-of-type {
+  border-top: none;
+}
+.mrow .mname {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+.mrow .mid {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mrow .mpx {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.mrow .mpx b {
+  color: var(--bone);
+  font-weight: 700;
+}
+.tag-new {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: var(--croc);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.removed-note {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.removed-note .strike {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+@media (max-width: 900px) {
+  .sec-grid {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .sec-rail {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .sec-rail .vlabel {
+    writing-mode: horizontal-tb;
+    margin-top: 0;
+  }
+  .cards.c3,
+  .cards.c2,
+  .demo-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .mrow {
+    grid-template-columns: 1fr auto;
+  }
+  .mrow .mid {
+    display: none;
+  }
+}

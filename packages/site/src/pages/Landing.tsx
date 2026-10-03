@@ -41,13 +41,13 @@ const FEATURES = [
   },
 ]
 
-const RULES = [
-  ["secret.literal", "critical", "API keys, tokens and private keys in added code"],
-  ["injection.dynamic-code", "warning", "eval and new Function on untrusted input"],
-  ["execution.process", "warning", "exec, execSync, spawn and spawnSync"],
-  ["rendering.unsafe-html", "warning", "innerHTML and dangerouslySetInnerHTML"],
-  ["transport.disabled-verification", "warning", "TLS verification or auth switched off"],
-  ["dependency.unreviewed-source", "warning", "Dependencies pulled from git, file or http"],
+const RULES: [string, string, string][] = [
+  ["secret.literal", "critical", "API keys, tokens and private keys in added code. Blocks the write."],
+  ["injection.dynamic-code", "warning", "eval and new Function on untrusted input."],
+  ["execution.process", "warning", "exec, execSync, spawn and spawnSync."],
+  ["rendering.unsafe-html", "warning", "innerHTML and dangerouslySetInnerHTML."],
+  ["transport.disabled-verification", "warning", "TLS verification or auth switched off."],
+  ["dependency.unreviewed-source", "warning", "Dependencies pulled from git, file or http."],
 ]
 
 const PENTEST = [
@@ -109,24 +109,47 @@ const VOICE = [
   },
 ]
 
-const MODELS = [
-  ["GLM 5.3 Prime", "z-ai/glm-5.3-prime"],
-  ["GLM 5.3", "z-ai/glm-5.3"],
-  ["DeepSeek V4.1 Flash", "deepseek/deepseek-v4.1-flash"],
-  ["DeepSeek V4 Pro", "deepseek/deepseek-v4-pro"],
-  ["Kimi K3", "moonshotai/kimi-k3"],
-  ["Grok 4.5", "x-ai/grok-4.5"],
-  ["Gemini 3.1 Pro", "google/gemini-3.1-pro-preview"],
-  ["Gemini 3.6 Flash", "google/gemini-3.6-flash"],
-  ["GLM 5.2", "z-ai/glm-5.2"],
-  ["Kimi K2.7 Code", "moonshotai/kimi-k2.7-code"],
-  ["MiniMax M3", "minimax/minimax-m3"],
-  ["Qwen3.7 Plus", "qwen/qwen3.7-plus"],
-  ["DeepSeek V4 Flash", "deepseek/deepseek-v4-flash"],
-  ["MiMo V2.5 Pro", "xiaomi/mimo-v2.5-pro"],
-  ["Qwen3 Coder Flash", "qwen/qwen3-coder-flash"],
-  ["MiMo V2.5", "xiaomi/mimo-v2.5"],
-  ["GLM 4.7 Flash", "z-ai/glm-4.7-flash"],
+// Open-weight catalog, grouped for the price table. Prices are sell-side $/1M
+// (in · out); keep in sync with the gateway PRICING.
+const MODEL_GROUPS: { label: string; note?: string; rows: [string, string, string, string, boolean?][] }[] = [
+  {
+    label: "GLM · Z.ai",
+    note: "$/1M in · out",
+    rows: [
+      ["GLM 5.3 Prime", "z-ai/glm-5.3-prime", "$3.92", "$12.32", true],
+      ["GLM 5.3", "z-ai/glm-5.3", "$1.96", "$6.16", true],
+      ["GLM 5.2", "z-ai/glm-5.2", "$1.11", "$3.49"],
+      ["GLM 4.7 Flash", "z-ai/glm-4.7-flash", "$0.08", "$0.56"],
+    ],
+  },
+  {
+    label: "DeepSeek",
+    rows: [
+      ["DeepSeek V4.1 Flash", "deepseek/deepseek-v4.1-flash", "$0.42", "$1.68", true],
+      ["DeepSeek V4 Pro", "deepseek/deepseek-v4-pro", "$0.60", "$1.22"],
+      ["DeepSeek V4 Flash", "deepseek/deepseek-v4-flash", "$0.14", "$0.28"],
+    ],
+  },
+  {
+    label: "Qwen · MiMo · MiniMax",
+    rows: [
+      ["Qwen3.7 Plus", "qwen/qwen3.7-plus", "$0.45", "$1.79"],
+      ["Qwen3 Coder Flash", "qwen/qwen3-coder-flash", "$0.28", "$1.36"],
+      ["MiMo V2.5 Pro", "xiaomi/mimo-v2.5-pro", "$0.60", "$1.22"],
+      ["MiMo V2.5", "xiaomi/mimo-v2.5", "$0.20", "$0.39"],
+      ["MiniMax M3", "minimax/minimax-m3", "$0.42", "$1.68"],
+    ],
+  },
+  {
+    label: "Kimi · Grok · Gemini",
+    rows: [
+      ["Kimi K2.7 Code", "moonshotai/kimi-k2.7-code", "$1.15", "$5.25"],
+      ["Kimi K3", "moonshotai/kimi-k3", "$4.20", "$21.00"],
+      ["Grok 4.5", "x-ai/grok-4.5", "$2.80", "$8.40"],
+      ["Gemini 3.6 Flash", "google/gemini-3.6-flash", "$2.10", "$10.50"],
+      ["Gemini 3.1 Pro", "google/gemini-3.1-pro-preview", "$2.80", "$16.80"],
+    ],
+  },
 ]
 
 const PLANS = [
@@ -179,6 +202,10 @@ const FAQ = [
     "No. CrokCode is a fork of opencode and keeps every provider it supports, so your own Anthropic, OpenAI, Google, OpenRouter or local model keys work as they always did. CrokAPI is there if you would rather pay one bill and skip key management.",
   ],
   [
+    "Why does CrokAPI only carry open models?",
+    "The hosted gateway serves open-weight models — GLM, DeepSeek, Qwen, Kimi, MiniMax, Grok and Gemini — billed at cost. Want Claude or GPT? Bring your own key; they still work in the client exactly as before.",
+  ],
+  [
     "What does Guard actually check?",
     "Added lines only, on JavaScript, TypeScript and JSON. It looks for hard-coded credentials, dynamic code execution, process spawning, unsafe HTML rendering, disabled TLS or auth, and dependencies pulled from unreviewed sources. Detected secrets are redacted everywhere, including in what gets sent to the model.",
   ],
@@ -216,6 +243,15 @@ const FAQ = [
   ],
 ]
 
+function Rail({ n, label }: { n: string; label: string }) {
+  return (
+    <div className="sec-rail">
+      <span className="num">{n}</span>
+      <span className="vlabel">{label}</span>
+    </div>
+  )
+}
+
 export function Landing() {
   const [os, setOs] = useState<keyof typeof INSTALL>("macOS")
   const [copied, setCopied] = useState(false)
@@ -249,7 +285,7 @@ export function Landing() {
       </header>
 
       <main>
-        {/* hero */}
+        {/* hero — unchanged */}
         <section className="wrap hero">
           <div>
             <h1>
@@ -290,223 +326,259 @@ export function Landing() {
         </section>
 
         {/* guard */}
-        <section id="guard" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">Guard</div>
-              <h2>It stops the write, not the review</h2>
-              <p className="lede">
-                Guard scans the diff after the agent proposes it and before anything touches your filesystem. A
-                critical, high-confidence finding raises a typed error, pauses the session and guarantees the change
-                never lands.
-              </p>
-            </div>
-
-            <div className="term">
-              <div className="term-bar">
-                <span style={{ color: "var(--croc)" }}>●</span> crokcode — auth-fix
+        <section id="guard" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="01" label="Guard" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">Guard</div>
+                <h2>It stops the write, not the review</h2>
+                <p className="lede">
+                  Guard scans the diff after the agent proposes it and before anything touches your filesystem. A
+                  critical, high-confidence finding raises a typed error, pauses the session and guarantees the change
+                  never lands.
+                </p>
               </div>
-              <div className="term-body">
-                <div className="term-dim">◆ Updated src/auth/session.ts</div>
-                <div>
-                  <span className="term-add">+ const apiKey = "sk_live_[REDACTED]"</span>
+
+              <div className="demo-split">
+                <div className="term">
+                  <div className="term-bar">
+                    <span style={{ color: "var(--croc)" }}>●</span> crokcode — auth-fix
+                  </div>
+                  <div className="term-body">
+                    <div className="term-dim">◆ Updated src/auth/session.ts</div>
+                    <div>
+                      <span className="term-add">+ const apiKey = "sk_live_[REDACTED]"</span>
+                    </div>
+                    <div className="finding">
+                      <div className="finding-head">
+                        ▣ Guard · Critical <span>CROK-001 · secret.literal</span>
+                      </div>
+                      <div style={{ marginTop: 8 }}>Private API key in added code</div>
+                      <div className="term-dim" style={{ fontSize: 12 }}>
+                        src/auth/session.ts:42 · high confidence
+                      </div>
+                      <div className="finding-keys">
+                        <span className="key key-on">F Fix</span>
+                        <span className="key">E Explain</span>
+                        <span className="key">R Revert</span>
+                      </div>
+                    </div>
+                    <div className="term-dim">Edit blocked before file write. Nothing was written to disk.</div>
+                  </div>
                 </div>
 
-                <div className="finding">
-                  <div className="finding-head">
-                    ▣ Guard · Critical <span>CROK-001 · secret.literal</span>
-                  </div>
-                  <div style={{ marginTop: 8 }}>Private API key in added code</div>
-                  <div className="term-dim" style={{ fontSize: 12 }}>
-                    src/auth/session.ts:42 · high confidence
-                  </div>
-                  <div className="finding-keys">
-                    <span className="key key-on">F Fix</span>
-                    <span className="key">E Explain</span>
-                    <span className="key">R Revert</span>
-                  </div>
+                <div className="cards">
+                  {RULES.map(([id, severity, body]) => (
+                    <div className={`card ${severity === "critical" ? "sev-crit" : "sev-warn"}`} key={id}>
+                      <span className="mark">{severity}</span>
+                      <div className="rule">{id}</div>
+                      <p>{body}</p>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="term-dim">Edit blocked before file write. Nothing was written to disk.</div>
               </div>
-            </div>
-
-            <div className="grid grid-2" style={{ marginTop: 28 }}>
-              {RULES.map(([id, severity, body]) => (
-                <div className="cell" key={id}>
-                  <span className="cell-mark" style={{ color: severity === "critical" ? "var(--danger)" : "var(--amber)" }}>
-                    {severity}
-                  </span>
-                  <h3 style={{ fontFamily: "var(--mono)", fontSize: 14 }}>{id}</h3>
-                  <p>{body}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
 
         {/* pentest */}
-        <section id="pentest" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">Pentest</div>
-              <h2>It attacks your app, on purpose</h2>
-              <p className="lede">
-                Guard reads the diff. Pentest goes further — you point it at your own running app and it sends real
-                attack traffic, then reports what actually got through. Every other agent guesses from source. This one
-                knocks.
-              </p>
-            </div>
-
-            <div className="term">
-              <div className="term-bar">
-                <span style={{ color: "var(--croc)" }}>●</span> crokcode — pentest
+        <section id="pentest" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="02" label="Pentest" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">Pentest</div>
+                <h2>It attacks your app, on purpose</h2>
+                <p className="lede">
+                  Guard reads the diff. Pentest goes further — you point it at your own running app and it sends real
+                  attack traffic, then reports what actually got through. Every other agent guesses from source. This one
+                  knocks.
+                </p>
               </div>
-              <div className="term-body">
-                <div className="term-dim">◆ pentest http://localhost:3000 — dry run</div>
-                <div className="term-dim">18 probes planned · idor, authz, injection, headers</div>
-                <div>
-                  <span className="term-add">▣ Authorize http://localhost:3000 for this session?</span>
-                </div>
-                <div className="finding-keys">
-                  <span className="key key-on">Y Authorize</span>
-                  <span className="key">N Cancel</span>
-                </div>
 
-                <div className="finding" style={{ marginTop: 20 }}>
-                  <div className="finding-head">
-                    ▣ Finding · High <span>idor · broken object access</span>
-                  </div>
-                  <div style={{ marginTop: 8 }}>GET /api/orders/1042 returns another account's order</div>
-                  <div className="term-dim" style={{ fontSize: 12 }}>
-                    authenticated as user 7 · expected 403, got 200
-                  </div>
+              <div className="term" style={{ marginBottom: 14 }}>
+                <div className="term-bar">
+                  <span style={{ color: "var(--croc)" }}>●</span> crokcode — pentest
                 </div>
-
-                <div className="term-dim">41 requests sent to localhost:3000. No other host was contacted.</div>
+                <div className="term-body">
+                  <div className="term-dim">◆ pentest http://localhost:3000 — dry run</div>
+                  <div className="term-dim">18 probes planned · idor, authz, injection, headers</div>
+                  <div>
+                    <span className="term-add">▣ Authorize http://localhost:3000 for this session?</span>
+                  </div>
+                  <div className="finding-keys">
+                    <span className="key key-on">Y Authorize</span>
+                    <span className="key">N Cancel</span>
+                  </div>
+                  <div className="finding" style={{ marginTop: 20 }}>
+                    <div className="finding-head">
+                      ▣ Finding · High <span>idor · broken object access</span>
+                    </div>
+                    <div style={{ marginTop: 8 }}>GET /api/orders/1042 returns another account's order</div>
+                    <div className="term-dim" style={{ fontSize: 12 }}>
+                      authenticated as user 7 · expected 403, got 200
+                    </div>
+                  </div>
+                  <div className="term-dim">41 requests sent to localhost:3000. No other host was contacted.</div>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-2" style={{ marginTop: 28 }}>
-              {PENTEST.map((item) => (
-                <div className="cell" key={item.mark}>
-                  <span className="cell-mark">{item.mark}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              ))}
+              <div className="cards c2">
+                {PENTEST.map((item) => (
+                  <div className="card" key={item.mark}>
+                    <span className="mark">{item.mark}</span>
+                    <h3>{item.title}</h3>
+                    <p>{item.body}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* features */}
-        <section id="features" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">What it is</div>
-              <h2>Everything opencode does, plus a security layer</h2>
-              <p className="lede">
-                CrokCode is a fork, not a rewrite. Every provider, agent and integration carries over. Guard, the
-                theme and CrokAPI are what we added.
-              </p>
-            </div>
-            <div className="grid grid-3">
-              {FEATURES.map((feature) => (
-                <div className="cell" key={feature.mark}>
-                  <span className="cell-mark">{feature.mark}</span>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.body}</p>
-                </div>
-              ))}
+        <section id="features" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="03" label="Features" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">What it is</div>
+                <h2>Everything opencode does, plus a security layer</h2>
+                <p className="lede">
+                  CrokCode is a fork, not a rewrite. Every provider, agent and integration carries over. Guard, the
+                  theme and CrokAPI are what we added.
+                </p>
+              </div>
+              <div className="cards c3">
+                {FEATURES.map((feature) => (
+                  <div className="card" key={feature.mark}>
+                    <span className="mark">{feature.mark}</span>
+                    <h3>{feature.title}</h3>
+                    <p>{feature.body}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* models */}
-        <section id="models" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">CrokAPI</div>
-              <h2>One key, open-weight models</h2>
-              <p className="lede">
-                CrokAPI is our hosted gateway. It speaks the OpenAI API, so it drops into anything, and it meters real
-                token counts against your plan. Open-weight models only, billed at cost — bring your own key for Claude
-                or GPT.
-              </p>
-            </div>
-            <div className="models">
-              {MODELS.map(([name, id]) => (
-                <div className="model" key={id}>
-                  <b>{name}</b>
-                  <span>{id}</span>
-                </div>
-              ))}
+        <section id="models" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="04" label="Models" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">CrokAPI</div>
+                <h2>One key, open-weight models</h2>
+                <p className="lede">
+                  CrokAPI is our hosted gateway. It speaks the OpenAI API, so it drops into anything, and it meters real
+                  token counts against your plan. Open-weight models only, billed at cost — bring your own key for Claude
+                  or GPT.
+                </p>
+              </div>
+              <div className="mcat">
+                {MODEL_GROUPS.map((group) => (
+                  <div className="mcat-group" key={group.label}>
+                    <div className="mcat-head">
+                      {group.label}
+                      {group.note && <span>{group.note}</span>}
+                    </div>
+                    {group.rows.map(([name, id, pin, pout, isNew]) => (
+                      <div className="mrow" key={id}>
+                        <span className="mname">
+                          {name}
+                          {isNew && <span className="tag-new">NEW</span>}
+                        </span>
+                        <span className="mid">{id}</span>
+                        <span className="mpx">
+                          <b>{pin}</b> · {pout}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="removed-note">
+                <span>Dropped from the gateway:</span>
+                <span className="strike">Claude Haiku / Sonnet / Opus / Fable</span>
+                <span className="strike">GPT-5.4 / 5.6 Terra / Sol</span>
+                <span>— bring your own key for those; CrokAPI is open models only.</span>
+              </div>
             </div>
           </div>
         </section>
 
         {/* local models */}
-        <section id="local" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">Local models</div>
-              <h2>Or run the whole thing on your own machine</h2>
-              <p className="lede">
-                Start Ollama and CrokCode finds it. Your local models appear in the picker beside the hosted ones, with
-                the same tools and the same Guard — the only difference is that nothing leaves the laptop.
-              </p>
-            </div>
-            <div className="grid grid-3">
-              {LOCAL.map((item) => (
-                <div className="cell" key={item.mark}>
-                  <span className="cell-mark">{item.mark}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              ))}
+        <section id="local" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="05" label="Local" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">Local models</div>
+                <h2>Or run the whole thing on your own machine</h2>
+                <p className="lede">
+                  Start Ollama and CrokCode finds it. Your local models appear in the picker beside the hosted ones, with
+                  the same tools and the same Guard — the only difference is that nothing leaves the laptop.
+                </p>
+              </div>
+              <div className="cards c3">
+                {LOCAL.map((item) => (
+                  <div className="card" key={item.mark}>
+                    <span className="mark">{item.mark}</span>
+                    <h3>{item.title}</h3>
+                    <p>{item.body}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* voice */}
-        <section id="voice" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">Voice</div>
-              <h2>Talk to it. Nothing is uploaded.</h2>
-              <p className="lede">
-                Hold <span className="key">ctrl+alt+v</span> and describe what you want. Speech is transcribed on-device by whisper.cpp
-                and dropped at your cursor in the prompt — dictation that works on a plane, in a locked-down repo, or
-                anywhere you would not paste your voice into someone's API.
-              </p>
-            </div>
-
-            <div className="term">
-              <div className="term-bar">
-                <span style={{ color: "var(--croc)" }}>●</span> crokcode — prompt
+        <section id="voice" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="06" label="Voice" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">Voice</div>
+                <h2>Talk to it. Nothing is uploaded.</h2>
+                <p className="lede">
+                  Hold <span className="key">ctrl+alt+v</span> and describe what you want. Speech is transcribed
+                  on-device by whisper.cpp and dropped at your cursor in the prompt — dictation that works on a plane, in
+                  a locked-down repo, or anywhere you would not paste your voice into someone's API.
+                </p>
               </div>
-              <div className="term-body">
-                <div>
-                  <span className="term-add">▐█▌▃▅█</span>{" "}
-                  <span className="term-dim">hearing you 0:06 · ctrl+alt+v stop</span>
-                </div>
-                <div className="term-dim">◆ transcribing…</div>
-                <div>
-                  &gt; refactor the session store so the cache key includes the workspace id
-                  <span style={{ color: "var(--croc)" }}>▌</span>
-                </div>
-                <div className="term-dim">Transcribed locally. No audio left this machine.</div>
-              </div>
-            </div>
 
-            <div className="grid grid-3" style={{ marginTop: 28 }}>
-              {VOICE.map((item) => (
-                <div className="cell" key={item.mark}>
-                  <span className="cell-mark">{item.mark}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
+              <div className="demo-split">
+                <div className="term">
+                  <div className="term-bar">
+                    <span style={{ color: "var(--croc)" }}>●</span> crokcode — prompt
+                  </div>
+                  <div className="term-body">
+                    <div>
+                      <span className="term-add">▐█▌▃▅█</span>{" "}
+                      <span className="term-dim">hearing you 0:06 · ctrl+alt+v stop</span>
+                    </div>
+                    <div className="term-dim">◆ transcribing…</div>
+                    <div>
+                      &gt; refactor the session store so the cache key includes the workspace id
+                      <span style={{ color: "var(--croc)" }}>▌</span>
+                    </div>
+                    <div className="term-dim">Transcribed locally. No audio left this machine.</div>
+                  </div>
                 </div>
-              ))}
+
+                <div className="cards">
+                  {VOICE.map((item) => (
+                    <div className="card" key={item.mark}>
+                      <span className="mark">{item.mark}</span>
+                      <h3>{item.title}</h3>
+                      <p>{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -519,8 +591,8 @@ export function Landing() {
               <span>Model providers supported</span>
             </div>
             <div className="stat">
-              <b>6</b>
-              <span>Guard rules, all readable</span>
+              <b>17</b>
+              <span>Open models on CrokAPI</span>
             </div>
             <div className="stat">
               <b>0</b>
@@ -534,54 +606,60 @@ export function Landing() {
         </section>
 
         {/* pricing */}
-        <section id="pricing" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">Pricing</div>
-              <h2>Pay for the gateway, not the agent</h2>
-              <p className="lede">
-                The CLI is free and always will be. Plans cover CrokAPI, and every plan can use every model — what
-                changes is how much you can spend per day and week. Bring your own keys and you pay us nothing.
-              </p>
-            </div>
-            <div className="plans">
-              {PLANS.map((plan) => (
-                <div className={`plan${plan.featured ? " plan-featured" : ""}`} key={plan.id}>
-                  <div className="plan-name">{plan.name}</div>
-                  <div className="plan-price">
-                    {plan.price}
-                    <small>{plan.per}</small>
+        <section id="pricing" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="07" label="Pricing" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">Pricing</div>
+                <h2>Pay for the gateway, not the agent</h2>
+                <p className="lede">
+                  The CLI is free and always will be. Plans cover CrokAPI, and every plan can use every model — what
+                  changes is how much you can spend per day and week. Bring your own keys and you pay us nothing.
+                </p>
+              </div>
+              <div className="plans">
+                {PLANS.map((plan) => (
+                  <div className={`plan${plan.featured ? " plan-featured" : ""}`} key={plan.id}>
+                    <div className="plan-name">{plan.name}</div>
+                    <div className="plan-price">
+                      {plan.price}
+                      <small>{plan.per}</small>
+                    </div>
+                    <div className="plan-caps">{plan.caps}</div>
+                    <p className="plan-for">{plan.for}</p>
+                    <ul>
+                      {plan.features.map((feature) => (
+                        <li key={feature}>{feature}</li>
+                      ))}
+                    </ul>
+                    <Link to="/app" className={`btn ${plan.featured ? "btn-primary" : "btn-ghost"}`}>
+                      Choose {plan.name}
+                    </Link>
                   </div>
-                  <div className="plan-caps">{plan.caps}</div>
-                  <p className="plan-for">{plan.for}</p>
-                  <ul>
-                    {plan.features.map((feature) => (
-                      <li key={feature}>{feature}</li>
-                    ))}
-                  </ul>
-                  <Link to="/app" className={`btn ${plan.featured ? "btn-primary" : "btn-ghost"}`}>
-                    Choose {plan.name}
-                  </Link>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* faq */}
-        <section id="faq" className="band">
-          <div className="wrap">
-            <div className="section-head">
-              <div className="eyebrow">FAQ</div>
-              <h2>Questions worth asking</h2>
-            </div>
-            <div className="faq">
-              {FAQ.map(([question, answer]) => (
-                <details key={question}>
-                  <summary>{question}</summary>
-                  <p>{answer}</p>
-                </details>
-              ))}
+        <section id="faq" className="sec">
+          <div className="wrap sec-grid">
+            <Rail n="08" label="FAQ" />
+            <div className="sec-main">
+              <div className="section-head">
+                <div className="eyebrow">FAQ</div>
+                <h2>Questions worth asking</h2>
+              </div>
+              <div className="faq">
+                {FAQ.map(([question, answer]) => (
+                  <details key={question}>
+                    <summary>{question}</summary>
+                    <p>{answer}</p>
+                  </details>
+                ))}
+              </div>
             </div>
           </div>
         </section>
