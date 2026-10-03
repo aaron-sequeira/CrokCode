@@ -28,9 +28,9 @@ const PROVIDER_PRIORITY: Record<string, number> = {
 
 // CrokCode plans, shown at the top of "Popular". All browser-pair and connect
 // the same `crokapi` gateway provider; the gateway enforces the account's real
-// plan. Every plan gets all models; the tier sets the daily/weekly caps.
+// plan. CrokPro gets the budget models; the tier also sets the caps.
 const CROK_PLANS = [
-  { id: "crokpro", title: "CrokPro", description: "$20/mo — all models · $5/day · $18/week" },
+  { id: "crokpro", title: "CrokPro", description: "$20/mo — budget models · $5/day · $18/week" },
   { id: "crok-king", title: "Crok-King", description: "$100/mo — all models · $20/day · $70/week (Recommended)" },
   { id: "crok-king-max", title: "Crok-King Max", description: "$200/mo — all models · $40/day · $150/week" },
   { id: "crok-as-you-go", title: "Crok-as-you-go", description: "Pay as you go — all models, no caps" },
@@ -580,16 +580,18 @@ const CROK_MODELS: Record<string, { name: string; image?: boolean; cost: { input
   "moonshotai/kimi-k3": { name: "Kimi K3", image: true, cost: { input: 4.2, output: 21 } },
 }
 
-// Every plan can use every model (margin comes from the usage caps). Names and
-// model lists match login.ts and the gateway.
+// CrokPro gets the budget models (up to GLM 5.2, $3.49/1M out); the other plans
+// get everything. Names and model lists match login.ts and the gateway.
 const CROK_PLAN_NAME: Record<string, string> = {
   crokpro: "CrokPro",
   "crok-king": "Crok-King",
   "crok-king-max": "Crok-King Max",
   "crok-as-you-go": "Crok-as-you-go",
 }
+// Subscription tiers in upgrade order; a higher tier may connect a lower one.
+const CROK_PLAN_RANK: Record<string, number> = { crokpro: 1, "crok-king": 2, "crok-king-max": 3 }
 const CROK_PLAN_MODEL_IDS: Record<string, string[]> = {
-  crokpro: Object.keys(CROK_MODELS),
+  crokpro: Object.keys(CROK_MODELS).filter((id) => CROK_MODELS[id].cost.output <= 3.5),
   "crok-king": Object.keys(CROK_MODELS),
   "crok-king-max": Object.keys(CROK_MODELS),
   "crok-as-you-go": Object.keys(CROK_MODELS),
@@ -674,6 +676,24 @@ function PlanConnect(props: PlanConnectProps) {
         () => ({}) as Record<string, any>,
       )
       if (polled.api_key) {
+        // cli-auth reports the account's real plan. Refuse a tier the account
+        // doesn't have instead of writing a provider the gateway won't honor.
+        const owned = polled.plan as string | null
+        const missing =
+          !owned ||
+          (props.planID === "crok-as-you-go"
+            ? owned !== props.planID
+            : (CROK_PLAN_RANK[props.planID] ?? 0) > (CROK_PLAN_RANK[owned] ?? 0))
+        if (missing) {
+          toast.show({
+            variant: "error",
+            message: owned
+              ? `Your account is on ${CROK_PLAN_NAME[owned] ?? owned}. Upgrade to ${props.title} at https://crokcode.tech/app to use it.`
+              : `No active CrokCode plan. Subscribe to ${props.title} at https://crokcode.tech/app first.`,
+          })
+          dialog.clear()
+          return
+        }
         setStatus("Approved. Connecting…")
         try {
           // Persist through the API so the global config cache is invalidated and

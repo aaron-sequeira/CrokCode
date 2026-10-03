@@ -36,18 +36,31 @@ const PRICING: Record<string, { input: number; output: number }> = {
 // ponytail: unlisted models bill at a flat default until the catalog is dynamic.
 const FALLBACK_PRICE = { input: 2, output: 8 }
 
-// Every plan may call every model; margin is protected by the per-plan daily/
-// weekly usage caps (plan_limits), not by withholding models. PAYG is uncapped.
+// CrokPro gets the budget models (up to GLM 5.2); Crok-King, Crok-King Max and
+// PAYG get everything. Caps (plan_limits) still bound spend on every plan.
 const PLAN_LABEL: Record<string, string> = {
   crokpro: "CrokPro",
   "crok-king": "Crok-King",
   "crok-king-max": "Crok-King Max",
   "crok-as-you-go": "Crok-as-you-go",
 }
+// Keep in sync with login.ts PLAN_MODEL_IDS and dialog-provider.tsx CROK_PLAN_MODEL_IDS.
+const CROKPRO_MODELS = new Set([
+  "deepseek/deepseek-v4-flash",
+  "z-ai/glm-4.7-flash",
+  "xiaomi/mimo-v2.5",
+  "qwen/qwen3-coder-flash",
+  "deepseek/deepseek-v4.1-flash",
+  "deepseek/deepseek-v4-pro",
+  "xiaomi/mimo-v2.5-pro",
+  "minimax/minimax-m3",
+  "qwen/qwen3.7-plus",
+  "z-ai/glm-5.2",
+])
 
-// Which model ids a plan may call. null = all models (every plan today).
-function modelsForPlan(_plan: string | null | undefined): Set<string> | null {
-  return null
+// Which model ids a plan may call. null = all models.
+function modelsForPlan(plan: string | null | undefined): Set<string> | null {
+  return plan === "crokpro" ? CROKPRO_MODELS : null
 }
 
 const CORS = {
@@ -158,7 +171,7 @@ Deno.serve(async (req) => {
     return json(
       {
         error: {
-          message: `Your CrokGo plan does not include ${model}. It includes ${[...planModels].join(", ")}. Upgrade to CrokPro for every model, or use Crok-as-you-go.`,
+          message: `${PLAN_LABEL[account.plan as string] ?? "Your plan"} does not include ${model}. Upgrade to Crok-King at https://crokcode.tech/app for every model, or use Crok-as-you-go.`,
           type: "model_not_permitted",
         },
       },

@@ -49,9 +49,10 @@ function configModel(def: { name: string; image?: boolean; cost: { input: number
   }
 }
 
-// The provider written per plan: named after the plan. Every plan can use every
-// model (margin comes from the usage caps, not model gating), so all plans map
-// to the full catalog. Falls back to "crokapi" when the account has no plan.
+// The provider written per plan: named after the plan. CrokPro gets the budget
+// models (up to GLM 5.2, $3.49/1M out); the other plans get the full catalog.
+// Must match the gateway's CROKPRO_MODELS. Falls back to "crokapi" when the
+// account has no plan.
 const PLAN_NAME: Record<string, string> = {
   crokpro: "CrokPro",
   "crok-king": "Crok-King",
@@ -59,7 +60,7 @@ const PLAN_NAME: Record<string, string> = {
   "crok-as-you-go": "Crok-as-you-go",
 }
 const PLAN_MODEL_IDS: Record<string, string[]> = {
-  crokpro: Object.keys(MODELS),
+  crokpro: Object.keys(MODELS).filter((id) => MODELS[id].cost.output <= 3.5),
   "crok-king": Object.keys(MODELS),
   "crok-king-max": Object.keys(MODELS),
   "crok-as-you-go": Object.keys(MODELS),

@@ -159,8 +159,8 @@ const PLANS = [
     price: "$20",
     per: "/month",
     caps: "$5/day · $18/week",
-    for: "Every model, light daily use.",
-    features: ["All 17 open models", "Guard on every edit", "Local models free", "Usage analytics"],
+    for: "Budget models, light daily use.",
+    features: ["10 budget models up to GLM 5.2", "Guard on every edit", "Local models free", "Usage analytics"],
   },
   {
     id: "crok-king",
@@ -235,7 +235,7 @@ const FAQ = [
   ],
   [
     "How do the plan limits and pay-as-you-go work?",
-    "CrokPro, Crok-King and Crok-King Max each give you a daily and weekly spend budget that resets each day and each Monday, and every plan can use every model. Connecting your own providers never counts against the cap. If you need uncapped, all-day heavy use, Crok-as-you-go bills only for the tokens you use, drawn from a balance you top up from $5.",
+    "CrokPro, Crok-King and Crok-King Max each give you a daily and weekly spend budget that resets each day and each Monday. CrokPro covers the 10 budget models; Crok-King and Crok-King Max add the premium ones. Connecting your own providers never counts against the cap. If you need uncapped, all-day heavy use, Crok-as-you-go bills only for the tokens you use, drawn from a balance you top up from $5.",
   ],
   [
     "Is it really open source?",
@@ -614,8 +614,8 @@ export function Landing() {
                 <div className="eyebrow">Pricing</div>
                 <h2>Pay for the gateway, not the agent</h2>
                 <p className="lede">
-                  The CLI is free and always will be. Plans cover CrokAPI, and every plan can use every model — what
-                  changes is how much you can spend per day and week. Bring your own keys and you pay us nothing.
+                  The CLI is free and always will be. Plans cover CrokAPI. CrokPro runs the budget models, Crok-King
+                  and up unlock all 17, and each tier raises how much you can spend per day and week. Bring your own keys and you pay us nothing.
                 </p>
               </div>
               <div className="plans">
